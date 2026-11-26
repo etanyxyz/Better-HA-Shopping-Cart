@@ -1,0 +1,13 @@
+.env
+PLAN.md
+Better-HA-Shopping-Cart-PLAN.md
+AGENTS.md
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.storage/
+config/
+*.log

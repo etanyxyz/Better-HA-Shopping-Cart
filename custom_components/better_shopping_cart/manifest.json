@@ -1,0 +1,15 @@
+{
+  "domain": "better_shopping_cart",
+  "name": "Better Shopping Cart",
+  "version": "0.1.0",
+  "documentation": "https://github.com/etanyxyz/Better-HA-Shopping-Cart",
+  "issue_tracker": "https://github.com/etanyxyz/Better-HA-Shopping-Cart/issues",
+  "codeowners": ["@etanyxyz"],
+  "config_flow": true,
+  "single_config_entry": true,
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "quality_scale": "bronze",
+  "dependencies": ["http", "frontend", "panel_custom"],
+  "requirements": []
+}

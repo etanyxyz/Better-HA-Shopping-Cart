@@ -1,0 +1,6 @@
+# Dev/test only. Do NOT add these to the integration manifest.
+# Pinned to the same HA version as the sandbox test environment (PLAN.md §11).
+homeassistant==2025.1.4
+pytest==8.3.5
+pytest-asyncio==0.24.0
+pytest-homeassistant-custom-component==0.13.205
