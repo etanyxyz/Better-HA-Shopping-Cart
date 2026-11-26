@@ -23,5 +23,5 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the (only) step of the user-initiated flow."""
         if user_input is not None:
             title = user_input.get(CONF_NAME) or "Better Shopping Cart"
-            return self.async_create_entry(title=title)
+            return self.async_create_entry(title=title, data={})
         return self.async_show_form(step_id="user", data_schema=CONFIG_SCHEMA)

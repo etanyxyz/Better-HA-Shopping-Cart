@@ -21,7 +21,7 @@ class BetterShoppingCartStore:
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Create the store wrapper."""
-        self._store = Store(STORAGE_KEY, hass, minor_version=STORAGE_VERSION)
+        self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: dict[str, Any] = default_data()
 
     @property
