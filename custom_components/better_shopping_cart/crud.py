@@ -223,8 +223,14 @@ class Crud:
         quantity: float | None = None,
         unit: str | None = None,
         note: str | None = None,
+        clear_note: bool = False,
     ) -> Item:
-        """Update item fields; moving to a new section teaches the map."""
+        """Update item fields; moving to a new section teaches the map.
+
+        ``note=None`` leaves the note untouched; ``clear_note=True`` clears
+        it (used by the todo platform, where clearing the description means
+        clearing the note).
+        """
         item_entry = self._find_item(list_id, item_id)
         if name is not None:
             item_entry["name"] = name
@@ -236,7 +242,9 @@ class Crud:
             item_entry["quantity"] = quantity
         if unit is not None:
             item_entry["unit"] = unit
-        if note is not None:
+        if clear_note:
+            item_entry["note"] = None
+        elif note is not None:
             item_entry["note"] = note
         return Item.from_dict(item_entry)
 
