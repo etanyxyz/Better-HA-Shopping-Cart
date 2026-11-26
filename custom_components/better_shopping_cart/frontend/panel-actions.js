@@ -1,0 +1,194 @@
+/**
+ * Better Shopping Cart panel - user actions mixin (M6).
+ *
+ * The mutations behind the view: list selection and creation, add, inline
+ * edit (cleared unit/note submitted as empty strings, since the frozen §5
+ * contract maps null to "leave unchanged"), delete, and up/down reordering.
+ * Expects the data mixin's methods (`_ws`, `_mutate`, `_refresh`,
+ * `_groupItems`, `_viewSections`) and the host's `_renderContent()`.
+ */
+
+const VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";
+const view = await import(`./panel-view.js?v=${VERSION}`);
+
+export const actionsMixin = (base) =>
+  class extends base {
+    async _onAction(action, el) {
+      switch (action) {
+        case "new-list":
+          this._showNewListForm();
+          break;
+        case "cancel-new-list": {
+          const form = el.closest(".new-list-form");
+          if (form) {
+            form.remove();
+          }
+          break;
+        }
+        case "save-new-list":
+          await this._saveNewList(
+            el.closest(".new-list-form").querySelector(".new-list-input")
+          );
+          break;
+        case "add-item":
+          await this._addItem();
+          break;
+        case "edit-item": {
+          const row = el.closest("[data-item-id]");
+          if (row) {
+            this._editingItemId = row.dataset.itemId;
+            this._renderContent();
+          }
+          break;
+        }
+        case "cancel-edit":
+          this._cancelEdit();
+          break;
+        case "save-item":
+          await this._saveItem(el.closest("[data-item-id]"));
+          break;
+        case "delete-item":
+          await this._mutate("items/delete", {
+            item_id: el.closest("[data-item-id]").dataset.itemId,
+          });
+          break;
+        case "move-up":
+        case "move-down":
+          await this._moveItem(
+            el.closest("[data-item-id]").dataset.itemId,
+            action === "move-up" ? -1 : 1
+          );
+          break;
+      }
+    }
+
+    _cancelEdit() {
+      this._editingItemId = null;
+      const form = this._root.querySelector(".new-list-form");
+      if (form) {
+        form.remove();
+      }
+      this._renderContent();
+    }
+
+    /** Insert the inline new-list form under the list bar (or at the top
+     * in the no-lists state). */
+    _showNewListForm() {
+      const content = this._root.querySelector(".content");
+      if (!content || content.querySelector(".new-list-form")) {
+        return;
+      }
+      const form = document.createElement("div");
+      form.innerHTML = view.newListForm();
+      const el = form.firstElementChild;
+      const listbar = content.querySelector(".listbar");
+      if (listbar) {
+        listbar.after(el);
+      } else {
+        content.prepend(el);
+      }
+      el.querySelector(".new-list-input").focus();
+    }
+
+    async _selectList(listId) {
+      this._activeListId = listId;
+      this._editingItemId = null;
+      await this._ws("settings/update", { active_list_id: listId });
+      await this._refresh();
+    }
+
+    async _toggleHideChecked(checked) {
+      // `settings/update` is global (no list_id), so skip `_mutate`.
+      await this._ws("settings/update", { hide_checked: checked });
+      await this._refresh();
+    }
+
+    async _saveNewList(input) {
+      const name = input.value.trim();
+      if (!name) {
+        return;
+      }
+      const payload = { name };
+      const defaultLayoutId = this._settings.default_layout_id;
+      if (
+        defaultLayoutId &&
+        this._layouts.some((l) => l.id === defaultLayoutId)
+      ) {
+        payload.layout_id = defaultLayoutId;
+      }
+      const { list } = await this._ws("lists/create", payload);
+      this._activeListId = list.id;
+      await this._refresh();
+    }
+
+    async _addItem() {
+      const input = this._root.querySelector(".add-input");
+      if (!input || !this._activeListId) {
+        return;
+      }
+      const name = input.value.trim();
+      if (name) {
+        // No section_id: the backend auto-categorises (PLAN.md section 5).
+        await this._mutate("items/add", { name });
+      }
+    }
+
+    async _saveItem(row) {
+      if (!row) {
+        return;
+      }
+      const name = row.querySelector(".edit-name").value.trim();
+      const qty = row.querySelector(".edit-qty").value;
+      const unit = row.querySelector(".edit-unit").value.trim();
+      const note = row.querySelector(".edit-note").value.trim();
+      const payload = { item_id: row.dataset.itemId };
+      if (name) {
+        payload.name = name;
+      }
+      payload.section_id = row.querySelector(".edit-section").value;
+      if (qty !== "") {
+        payload.quantity = Number(qty);
+      }
+      // The frozen §5 contract maps null to "leave unchanged", so a cleared
+      // field is submitted as an empty string (falsy, renders nothing).
+      payload.unit = unit;
+      payload.note = note;
+      await this._mutate("items/update", payload);
+      this._editingItemId = null;
+    }
+
+    /**
+     * Move an item up/down within its section, then send the full display
+     * order (all items, all sections) to `items/reorder`.
+     */
+    async _moveItem(itemId, delta) {
+      const groups = this._groupItems();
+      let displayOrder = [];
+      for (const section of this._viewSections()) {
+        displayOrder = displayOrder.concat(groups.get(section.id) || []);
+      }
+      // Items in hidden sections are not reachable from the view; keep their
+      // relative order at the end of the submitted list.
+      const visibleIds = new Set(displayOrder.map((i) => i.id));
+      for (const item of [...this._items].sort((a, b) => a.order - b.order)) {
+        if (!visibleIds.has(item.id)) {
+          displayOrder.push(item);
+        }
+      }
+      const from = displayOrder.findIndex((i) => i.id === itemId);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= displayOrder.length) {
+        return;
+      }
+      if (displayOrder[from].section_id !== displayOrder[to].section_id) {
+        return;
+      }
+      [displayOrder[from], displayOrder[to]] = [
+        displayOrder[to],
+        displayOrder[from],
+      ];
+      await this._mutate("items/reorder", {
+        ordered_ids: displayOrder.map((i) => i.id),
+      });
+    }
+  };

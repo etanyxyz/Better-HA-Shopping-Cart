@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 DOMAIN = "better_shopping_cart"
-VERSION = "0.1.1"
+VERSION = "0.1.5"
 
 CONF_NAME = "name"
 

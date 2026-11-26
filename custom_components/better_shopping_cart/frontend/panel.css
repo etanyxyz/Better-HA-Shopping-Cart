@@ -1,8 +1,9 @@
-/* Better Shopping Cart panel - mobile-first shell (M5).
+/* Better Shopping Cart panel - shopping view (M6).
  *
  * Theming uses HA frontend CSS custom properties, so light and dark themes
  * work automatically. Base styles target phones; desktop adjustments live
- * in the (min-width: 600px) block. Tap targets are 44px+.
+ * in the (min-width: 600px) block. Primary tap targets are 44px; the four
+ * secondary per-item action buttons are 40px to fit a phone-width row.
  */
 
 :host {
@@ -106,6 +107,448 @@
 .empty p {
   margin: 0;
   font-size: 15px;
+}
+
+/* ---- list bar (selector, progress, hide-checked) ---------------------- */
+
+.listbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.list-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--hover-color, rgba(0, 0, 0, 0.06));
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 2px;
+}
+
+.icon-btn ha-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.icon-btn.danger {
+  color: var(--error-color, #f44336);
+}
+
+.progress {
+  flex: 0 0 auto;
+  min-width: 48px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
+}
+
+.hidechecked {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.hidechecked input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.hidechecked ha-icon {
+  width: 22px;
+  height: 22px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.hidechecked input:checked + ha-icon {
+  opacity: 1;
+}
+
+.hidechecked:hover {
+  background: var(--hover-color, rgba(0, 0, 0, 0.06));
+}
+
+.hidechecked input:focus-visible + ha-icon {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 10px;
+  border-radius: 50%;
+}
+
+/* ---- add row ---------------------------------------------------------- */
+
+.addrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.add-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.add-input:focus {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+/* ---- sections ---------------------------------------------------------- */
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sblock {
+  background: var(--card-background-color, #ffffff);
+  border-radius: 12px;
+  padding: 4px 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.shead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.shead ha-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--primary-color, #03a9f4);
+}
+
+.scount {
+  margin-left: auto;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
+}
+
+/* ---- items ------------------------------------------------------------- */
+
+.items {
+  display: flex;
+  flex-direction: column;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+
+.item:hover {
+  background: var(--hover-color, rgba(0, 0, 0, 0.04));
+}
+
+.check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin: 8px;
+  border: 2px solid var(--divider-color, rgba(0, 0, 0, 0.3));
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.check input {
+  position: absolute;
+  inset: -8px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.check ha-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.item.checked .check {
+  border-color: var(--primary-color, #03a9f4);
+  background: var(--primary-color, #03a9f4);
+}
+
+.item.checked .check ha-icon {
+  opacity: 1;
+  color: var(--primary-background-color, #ffffff);
+}
+
+.check:hover {
+  border-color: var(--primary-color, #03a9f4);
+}
+
+.check input:focus-visible + ha-icon {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 14px;
+  border-radius: 50%;
+}
+
+.item-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.item-body:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 2px;
+}
+
+.item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  line-height: 1.3;
+  transition: opacity 0.2s ease;
+}
+
+.badge {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--secondary-background-color, rgba(0, 0, 0, 0.06));
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
+}
+
+.item-note {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
+  transition: opacity 0.2s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item.checked .item-name,
+.item.checked .item-note {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.item-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+}
+
+.item-actions .icon-btn {
+  width: 44px;
+  height: 44px;
+}
+
+.item-actions .icon-btn ha-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---- inline item edit form --------------------------------------------- */
+
+.item-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 8px;
+  margin: 2px 0;
+  background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+  border-radius: 12px;
+}
+
+.item-edit input,
+.item-edit select,
+.new-list-form input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.item-edit input:focus,
+.item-edit select:focus,
+.new-list-form input:focus {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.edit-row {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
+}
+
+.edit-row .edit-section {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.edit-row .edit-qty {
+  flex: 0 0 64px;
+  width: 64px;
+}
+
+.edit-row .edit-unit {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- buttons ----------------------------------------------------------- */
+
+.primary-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary-color, #03a9f4);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.08);
+}
+
+.primary-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 3px;
+}
+
+.text-btn {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--primary-color, #03a9f4);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.text-btn:hover {
+  background: var(--hover-color, rgba(0, 0, 0, 0.06));
+}
+
+.text-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 2px;
+}
+
+/* ---- new-list form ------------------------------------------------------ */
+
+.new-list-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.new-list-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- misc -------------------------------------------------------------- */
+
+.hint {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
 }
 
 /* ---- desktop (wide) adjustments --------------------------------------- */
