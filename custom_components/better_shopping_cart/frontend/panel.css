@@ -1,0 +1,125 @@
+/* Better Shopping Cart panel - mobile-first shell (M5).
+ *
+ * Theming uses HA frontend CSS custom properties, so light and dark themes
+ * work automatically. Base styles target phones; desktop adjustments live
+ * in the (min-width: 600px) block. Tap targets are 44px+.
+ */
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--primary-background-color, #ffffff);
+  color: var(--primary-text-color, #000000);
+  overflow: hidden;
+}
+
+/* ---- top app bar ----------------------------------------------------- */
+
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 56px;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 16px 6px;
+  background: var(--card-background-color, #ffffff);
+  border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+}
+
+.title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.menu-btn:hover {
+  background: var(--hover-color, rgba(0, 0, 0, 0.06));
+}
+
+.menu-btn:focus-visible {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 2px;
+}
+
+.menu-btn ha-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* Hide the menu button when the sidebar is docked. The `narrow` attribute
+ * is set from the wrapper's `narrow` property, which mirrors the app's
+ * sidebar state (drawer vs docked) exactly. */
+:host(:not([narrow])) .menu-btn {
+  display: none;
+}
+
+/* ---- content ---------------------------------------------------------- */
+
+.content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12dvh;
+  text-align: center;
+  color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
+}
+
+.empty ha-icon {
+  width: 56px;
+  height: 56px;
+  opacity: 0.5;
+}
+
+.empty p {
+  margin: 0;
+  font-size: 15px;
+}
+
+/* ---- desktop (wide) adjustments --------------------------------------- */
+
+@media (min-width: 600px) {
+  .appbar {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .content {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+}

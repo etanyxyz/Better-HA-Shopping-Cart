@@ -4,9 +4,16 @@ from __future__ import annotations
 from typing import Any
 
 DOMAIN = "better_shopping_cart"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 CONF_NAME = "name"
+
+# Frontend panel (M5): the webcomponent name, its URL path and the
+# cache-busted module URL (busted with the integration version so upgrades
+# reload the module). Assets are served from frontend/ under /bsc/.
+PANEL_URL_PATH = "shopping-cart"
+PANEL_WEBCOMPONENT = "better-shopping-cart-panel"
+PANEL_MODULE_URL = f"bsc/better-shopping-cart-panel.js?v={VERSION}"
 
 # Dispatcher signal fired after any mutating WebSocket command.
 SIGNAL_UPDATED = f"{DOMAIN}_updated"
