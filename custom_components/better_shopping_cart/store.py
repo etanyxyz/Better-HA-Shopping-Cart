@@ -1,7 +1,10 @@
-"""Persistence for Better Shopping Cart.
+"""Persistence, read access and categorisation (PLAN.md M1).
 
-M0: thin wrapper around Home Assistant's ``Store`` that loads and saves the
-raw store payload. M1 adds first-run seeding and the CRUD helpers.
+``BetterShoppingCartStore`` wraps ``homeassistant.helpers.storage.Store`` and
+keeps the in-memory payload in the frozen store shape (PLAN.md §4). Mutating
+CRUD helpers live in ``crud.py`` (mixed in via ``Crud``). CRUD helpers mutate
+the payload only; the caller (WebSocket layer from M2 on) must
+``await async_save()`` and fire the dispatcher signal.
 """
 from __future__ import annotations
 
@@ -11,34 +14,205 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import STORAGE_KEY, STORAGE_VERSION, default_data
+from . import models
+from .const import (
+    DEFAULT_CATEGORY_MAP,
+    DEFAULT_LAYOUT_NAME,
+    DEFAULT_SECTIONS,
+    DEFAULT_SETTINGS,
+    SECTION_UNCATEGORISED,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+    default_data,
+    normalise_name,
+)
+from .crud import Crud
+from .models import Item, Layout, Section, ShoppingList, Template
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class BetterShoppingCartStore:
+class BetterShoppingCartStore(Crud):
     """Load, save and expose the Better Shopping Cart data."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Create the store wrapper."""
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-        self._data: dict[str, Any] = default_data()
+        self._data: dict[str, Any] | None = None
 
     @property
     def data(self) -> dict[str, Any]:
         """Return the in-memory store payload."""
+        if self._data is None:
+            self._data = default_data()
         return self._data
 
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
     async def async_load(self) -> None:
-        """Load data from disk, keeping defaults when missing or corrupt."""
+        """Load data from disk, seeding defaults on first run."""
         try:
             stored = await self._store.async_load()
         except Exception:  # noqa: BLE001 - a corrupt file must not break setup
             _LOGGER.warning("Could not load %s; starting with defaults", STORAGE_KEY)
-            return
-        if stored is not None:
+            stored = None
+        if stored is None:
+            self._data = self._seed()
+        elif stored.get("version") != STORAGE_VERSION:
+            _LOGGER.warning(
+                "Store version %s does not match %s; starting with defaults",
+                stored.get("version"),
+                STORAGE_VERSION,
+            )
+            self._data = self._seed()
+        else:
             self._data = stored
 
     async def async_save(self) -> None:
         """Persist the in-memory payload to disk."""
-        await self._store.async_save(self._data)
+        await self._store.async_save(self.data)
+
+    def _seed(self) -> dict[str, Any]:
+        """Build the first-run payload: default sections, layout, category map."""
+        data = default_data()
+        section_id_by_name: dict[str, str] = {}
+        for order, (name, icon) in enumerate(DEFAULT_SECTIONS):
+            section_id = models.new_id()
+            section_id_by_name[name] = section_id
+            data["sections"].append(
+                {"id": section_id, "name": name, "icon": icon, "order": order}
+            )
+        data["layouts"].append(
+            {
+                "id": models.new_id(),
+                "name": DEFAULT_LAYOUT_NAME,
+                "section_order": [s["id"] for s in data["sections"]],
+                "hidden_sections": [],
+            }
+        )
+        fallback = section_id_by_name.get("Other")
+        for item_name, section_name in DEFAULT_CATEGORY_MAP.items():
+            data["category_map"][normalise_name(item_name)] = (
+                section_id_by_name.get(section_name) or fallback
+            )
+        return data
+
+    # ------------------------------------------------------------------
+    # Read access
+    # ------------------------------------------------------------------
+
+    def sections(self) -> list[Section]:
+        """Return all sections in default order."""
+        return sorted(
+            (Section.from_dict(s) for s in self.data["sections"]), key=lambda s: s.order
+        )
+
+    def section(self, section_id: str) -> Section | None:
+        """Return one section by id."""
+        for entry in self.data["sections"]:
+            if entry["id"] == section_id:
+                return Section.from_dict(entry)
+        return None
+
+    def layouts(self) -> list[Layout]:
+        """Return all layouts."""
+        return [Layout.from_dict(l) for l in self.data["layouts"]]
+
+    def layout(self, layout_id: str) -> Layout | None:
+        """Return one layout by id."""
+        for entry in self.data["layouts"]:
+            if entry["id"] == layout_id:
+                return Layout.from_dict(entry)
+        return None
+
+    def lists(self) -> list[ShoppingList]:
+        """Return all shopping lists."""
+        return [ShoppingList.from_dict(l) for l in self.data["lists"]]
+
+    def shopping_list(self, list_id: str) -> ShoppingList | None:
+        """Return one shopping list by id."""
+        for entry in self.data["lists"]:
+            if entry["id"] == list_id:
+                return ShoppingList.from_dict(entry)
+        return None
+
+    def items(self, list_id: str) -> list[Item]:
+        """Return the items of a list (in stored order)."""
+        entry = self._find("lists", list_id)
+        return [Item.from_dict(i) for i in entry["items"]]
+
+    def item(self, list_id: str, item_id: str) -> Item | None:
+        """Return one item of a list."""
+        entry = self._find("lists", list_id)
+        for item in entry["items"]:
+            if item["id"] == item_id:
+                return Item.from_dict(item)
+        return None
+
+    def templates(self) -> list[Template]:
+        """Return all templates."""
+        return [Template.from_dict(t) for t in self.data["templates"]]
+
+    def template(self, template_id: str) -> Template | None:
+        """Return one template by id."""
+        for entry in self.data["templates"]:
+            if entry["id"] == template_id:
+                return Template.from_dict(entry)
+        return None
+
+    def settings(self) -> dict[str, Any]:
+        """Return the current settings."""
+        return self.data["settings"]
+
+    def category_map(self) -> dict[str, str]:
+        """Return the learned category map (normalised name -> section id)."""
+        return self.data["category_map"]
+
+    def update_settings(self, values: dict[str, Any]) -> dict[str, Any]:
+        """Update settings (the WebSocket layer validates the keys)."""
+        self.data["settings"].update(values)
+        return self.data["settings"]
+
+    # ------------------------------------------------------------------
+    # Auto-categorisation (PLAN.md §5)
+    # ------------------------------------------------------------------
+
+    def categorise(self, name: str, section_id: str | None = None) -> str:
+        """Resolve the section id for an item name (PLAN.md §5 rule).
+
+        An explicit valid section id wins, then the learned category map, then
+        the built-in dictionary, else the "Uncategorised" section.
+        """
+        if section_id and self.section(section_id) is not None:
+            return section_id
+        normalised = normalise_name(name)
+        learned = self.data["category_map"].get(normalised)
+        if learned and self.section(learned) is not None:
+            return learned
+        section_name = DEFAULT_CATEGORY_MAP.get(normalised)
+        if section_name:
+            for entry in self.data["sections"]:
+                if entry["name"] == section_name:
+                    return entry["id"]
+        return self._ensure_uncategorised()
+
+    def learn_category(self, name: str, section_id: str) -> None:
+        """Record the user's section choice for an item name."""
+        if self.section(section_id) is not None:
+            self.data["category_map"][normalise_name(name)] = section_id
+
+    def _ensure_uncategorised(self) -> str:
+        """Return (creating if needed) the fallback section for items."""
+        for entry in self.data["sections"]:
+            if entry["name"] == SECTION_UNCATEGORISED:
+                return entry["id"]
+        entry: dict[str, Any] = {
+            "id": models.new_id(),
+            "name": SECTION_UNCATEGORISED,
+            "icon": "mdi:help-circle",
+            "order": len(self.data["sections"]),
+        }
+        self.data["sections"].append(entry)
+        return entry["id"]
