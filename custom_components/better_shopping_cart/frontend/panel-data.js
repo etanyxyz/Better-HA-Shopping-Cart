@@ -101,13 +101,17 @@ export const dataMixin = (base) =>
       }
     }
 
-    /** Sections of the active list's layout, in walking order. */
+    /**
+     * Sections of the active list's layout, in walking order. The list's
+     * own layout wins; a list without one follows the store default layout.
+     */
     _viewSections() {
       const list = this._lists.find((l) => l.id === this._activeListId);
-      const layout =
-        list && list.layout_id
-          ? this._layouts.find((l) => l.id === list.layout_id)
-          : null;
+      const layoutId =
+        (list && list.layout_id) || this._settings.default_layout_id || null;
+      const layout = layoutId
+        ? this._layouts.find((l) => l.id === layoutId)
+        : null;
       const byId = new Map(this._sections.map((s) => [s.id, s]));
       const ordered = layout
         ? layout.section_order.map((id) => byId.get(id)).filter(Boolean)

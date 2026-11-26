@@ -49,6 +49,18 @@ async def test_static_assets_served(hass_client, bsc_entry):
     assert missing.status == 404
 
 
+async def test_store_modules_served(hass_client, bsc_entry):
+    """The M7 store-management modules are served under /bsc/."""
+    client = await hass_client()
+    for name in (
+        "panel-store-view.js",
+        "panel-store-actions.js",
+        "panel-drag.js",
+    ):
+        resp = await client.get(f"/bsc/{name}")
+        assert resp.status == 200
+
+
 async def test_panel_url_serves_index(hass_client, bsc_entry):
     """GET /shopping-cart serves the frontend index page (direct navigation)."""
     client = await hass_client()

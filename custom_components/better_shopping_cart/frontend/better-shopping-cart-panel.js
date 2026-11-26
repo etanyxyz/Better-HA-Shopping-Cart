@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - shopping view (M6).
+ * Better Shopping Cart panel - shopping view (M6) + store management (M7).
  *
  * Registered as a custom panel: url /shopping-cart, module
  * bsc/better-shopping-cart-panel.js?v=<VERSION>. HA's wrapper
@@ -7,9 +7,12 @@
  * connect and may re-send them while connected, so all setters are
  * idempotent. Split by concern to keep each file small:
  *
- *   panel-view.js    pure HTML builders (no DOM access)
- *   panel-data.js    store copy: WS calls, refresh, live subscription
- *   panel-actions.js user actions: select/create, add, edit, delete, reorder
+ *   panel-view.js          pure HTML builders, shopping view (no DOM access)
+ *   panel-store-view.js    pure HTML builders, sections + layouts screens
+ *   panel-data.js          store copy: WS calls, refresh, live subscription
+ *   panel-actions.js       shopping view actions: add, edit, delete, reorder
+ *   panel-store-actions.js store management actions + drag reorder commit
+ *   panel-drag.js          pointer-event drag reorder helper
  *
  * The panel keeps a local copy of the store (lists, sections, layouts,
  * settings) plus the active list's items, refreshed after each mutation and
@@ -21,8 +24,12 @@ const VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";
 const view = await import(`./panel-view.js?v=${VERSION}`);
 const { dataMixin } = await import(`./panel-data.js?v=${VERSION}`);
 const { actionsMixin } = await import(`./panel-actions.js?v=${VERSION}`);
+const { storeActionsMixin } = await import(`./panel-store-actions.js?v=${VERSION}`);
+const { attachDragReorder } = await import(`./panel-drag.js?v=${VERSION}`);
 
-class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
+class BetterShoppingCartPanel extends dataMixin(
+  storeActionsMixin(actionsMixin(HTMLElement))
+) {
   constructor() {
     super();
     this._root = this.attachShadow({ mode: "open" });
@@ -40,6 +47,10 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
     this._items = [];
     this._activeListId = null;
     this._editingItemId = null;
+    // Store management state (M7): "shopping" | "sections" | "layouts".
+    this._view = "shopping";
+    this._editingSectionId = null;
+    this._editingLayoutId = null;
     this._refreshing = false;
     this._refreshQueued = false;
     this._unsubscribe = null;
@@ -129,10 +140,10 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
   _render() {
     this._root.innerHTML = `
       <div class="appbar">
-        <button type="button" class="menu-btn" aria-label="Open navigation menu">
-          <ha-icon icon="mdi:menu"></ha-icon>
-        </button>
+        <button type="button" class="menu-btn" aria-label="Open navigation menu"><ha-icon icon="mdi:menu"></ha-icon></button>
+        <button type="button" class="icon-btn back-btn" aria-label="Back to shopping view" hidden><ha-icon icon="mdi:arrow-left"></ha-icon></button>
         <h1 class="title">Shopping Cart</h1>
+        <button type="button" class="icon-btn manage-btn" aria-label="Manage store (sections and layouts)" title="Manage store"><ha-icon icon="mdi:store"></ha-icon></button>
       </div>
       <div class="content"></div>
     `;
@@ -141,13 +152,23 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
       this._root.appendChild(this._style);
     }
     this._root.querySelector(".menu-btn").addEventListener("click", () => {
-      // The app listens for this event on itself; bubbles + composed carry
-      // it out of the shadow root. No detail: toggle the drawer.
-      this.dispatchEvent(
-        new Event("hass-toggle-menu", { bubbles: true, composed: true })
-      );
+      // bubbles + composed carry the event out of the shadow root.
+      this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }));
     });
+    this._root.querySelector(".back-btn").onclick = () => this._gotoView("shopping");
+    this._root.querySelector(".manage-btn").onclick = () => this._gotoView("sections");
     this._bindContentEvents();
+    this._renderContent();
+  }
+
+  /** Switch between the shopping view and the store management screens. */
+  _gotoView(viewName) {
+    this._view = viewName;
+    this._editingSectionId = null;
+    this._editingLayoutId = null;
+    this._root.querySelector(".back-btn").hidden = viewName === "shopping";
+    this._root.querySelector(".manage-btn").hidden = viewName !== "shopping";
+    this._root.querySelector(".title").textContent = { shopping: "Shopping Cart", sections: "Sections", layouts: "Layouts" }[viewName];
     this._renderContent();
   }
 
@@ -167,6 +188,9 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
     if (!content) {
       return;
     }
+    if (this._view !== "shopping") {
+      return this._renderStoreContent();
+    }
     if (!this._lists.length) {
       content.innerHTML = view.noListsState();
       return;
@@ -177,17 +201,17 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
     const sections = viewSections
       .map((section) => {
         const items = groups.get(section.id) || [];
-        const visible = hideChecked
-          ? items.filter((i) => !i.checked)
-          : items;
-        const remaining =
-          items.length - items.filter((i) => i.checked).length;
-        return { section, visible, remaining };
+        const visible = hideChecked ? items.filter((i) => !i.checked) : items;
+        return { section, visible, remaining: items.length - items.filter((i) => i.checked).length };
       })
       .filter((g) => g.visible.length);
+    const activeList = this._lists.find((l) => l.id === this._activeListId);
     content.innerHTML = view.shoppingView({
       lists: this._lists,
       activeListId: this._activeListId,
+      activeLayoutId: activeList ? activeList.layout_id : null,
+      defaultLayoutId: this._settings.default_layout_id,
+      layouts: this._layouts.map((l) => ({ id: l.id, name: l.name, isDefault: l.id === this._settings.default_layout_id })),
       hideChecked,
       checked: this._items.filter((i) => i.checked).length,
       total: this._items.length,
@@ -196,12 +220,8 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
       editingItemId: this._editingItemId,
     });
     if (this._editingItemId) {
-      const name = content.querySelector(
-        `[data-item-id="${this._editingItemId}"] .edit-name`
-      );
-      if (name) {
-        name.focus();
-      }
+      const name = content.querySelector(`[data-item-id="${this._editingItemId}"] .edit-name`);
+      name?.focus();
     }
   }
 
@@ -219,15 +239,23 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
       if (!el || !content.contains(el)) {
         return;
       }
-      safe(this._onAction(el.dataset.action, el));
+      const handler =
+        this._view !== "shopping" ? this._onStoreAction : this._onAction;
+      safe(handler.call(this, el.dataset.action, el));
     });
     content.addEventListener("change", (event) => {
       const el = event.target.closest("[data-action]");
       if (!el) {
         return;
       }
+      if (this._view !== "shopping") {
+        safe(this._onStoreChange(el));
+        return;
+      }
       if (el.dataset.action === "select-list") {
         safe(this._selectList(el.value));
+      } else if (el.dataset.action === "select-layout") {
+        safe(this._onStoreChange(el));
       } else if (el.dataset.action === "check-item") {
         safe(
           this._mutate("items/check", {
@@ -240,6 +268,10 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
       }
     });
     content.addEventListener("keydown", (event) => {
+      if (this._view !== "shopping") {
+        safe(this._onStoreKeydown(event));
+        return;
+      }
       const t = event.target;
       const cls = t.classList;
       if (event.key === "Enter" && cls.contains("add-input")) {
@@ -260,6 +292,10 @@ class BetterShoppingCartPanel extends dataMixin(actionsMixin(HTMLElement)) {
       ) {
         this._cancelEdit();
       }
+    });
+    // Pointer drag reorder for the store screens' row lists (M7).
+    attachDragReorder(content, "[data-drag-row]", (ids) => {
+      safe(this._onDragReorder(ids));
     });
   }
 }

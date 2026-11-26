@@ -1,9 +1,8 @@
-/* Better Shopping Cart panel - shopping view (M6).
+/* Better Shopping Cart panel - shopping view (M6) + store management (M7).
  *
  * Theming uses HA frontend CSS custom properties, so light and dark themes
  * work automatically. Base styles target phones; desktop adjustments live
- * in the (min-width: 600px) block. Primary tap targets are 44px; the four
- * secondary per-item action buttons are 40px to fit a phone-width row.
+ * in the (min-width: 600px) block. All tap targets are at least 44px.
  */
 
 :host {
@@ -540,6 +539,197 @@
 .new-list-form input {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* ---- store management (M7) ---------------------------------------------- */
+
+.appbar .icon-btn ha-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* The layout selector wraps to its own row on phones. */
+.listbar {
+  flex-wrap: wrap;
+}
+
+.layout-select {
+  order: 5;
+  flex: 1 1 100%;
+  margin-top: 6px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab ha-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.tab.active {
+  border-color: transparent;
+  background: var(--primary-color, #03a9f4);
+  color: #ffffff;
+}
+
+.store-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.store-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 4px 8px;
+  background: var(--card-background-color, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.row-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: var(--primary-color, #03a9f4);
+}
+
+.row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.row-actions .icon-btn ha-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.badge.default {
+  background: var(--primary-color, #03a9f4);
+  color: #ffffff;
+}
+
+/* Drag reorder: the handle opts out of browser scrolling (touch) and the
+ * dragged row floats above its siblings. */
+
+.drag-handle {
+  touch-action: none;
+  cursor: grab;
+}
+
+.store-row.dragging {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Section row inline edit form. */
+
+.row-edit {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
+}
+
+.row-edit input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.row-edit input:focus {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.row-edit .edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Layout editor. */
+
+.layout-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--card-background-color, #ffffff);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.layout-editor .shead {
+  margin: 0;
+  padding: 0;
+}
+
+.layout-editor .edit-row {
+  align-items: flex-end;
+}
+
+.layout-editor .edit-row label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.layout-editor .layout-name-input {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.layout-editor .layout-name-input:focus {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.done-btn {
+  width: 100%;
 }
 
 /* ---- misc -------------------------------------------------------------- */

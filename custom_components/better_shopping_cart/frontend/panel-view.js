@@ -41,15 +41,27 @@ export function errorState(message) {
 }
 
 /**
- * The shopping view: list bar (selector, progress, hide-checked toggle),
- * add row and the section blocks.
+ * The shopping view: list bar (list selector, layout selector, progress,
+ * hide-checked toggle), add row and the section blocks.
  *
- * ctx: { lists, activeListId, hideChecked, checked, total,
+ * ctx: { lists, activeListId, activeLayoutId, defaultLayoutId,
+ *        layouts: [{ id, name, isDefault }],
+ *        hideChecked, checked, total,
  *        sections: [{ section, visible, remaining }],
  *        viewSections, editingItemId }
  */
 export function shoppingView(ctx) {
   const { lists, activeListId, hideChecked, checked, total, sections } = ctx;
+  const layoutOptions = [
+    option(
+      "",
+      ctx.activeLayoutId ? null : "",
+      ctx.defaultLayoutId ? "Follow default layout" : "Default section order"
+    ),
+    ...ctx.layouts.map((l) =>
+      option(l.id, ctx.activeLayoutId, l.isDefault ? `${l.name} •` : l.name)
+    ),
+  ].join("");
   let html = `
     <div class="listbar">
       <select class="list-select" data-action="select-list" aria-label="Active shopping list">
@@ -63,6 +75,9 @@ export function shoppingView(ctx) {
         <input type="checkbox" data-action="hide-checked" aria-label="Hide checked items"${hideChecked ? " checked" : ""}>
         <ha-icon icon="mdi:eye-off-outline"></ha-icon>
       </label>
+      <select class="list-select layout-select" data-action="select-layout" aria-label="Store layout (section order)">
+        ${layoutOptions}
+      </select>
     </div>
     <div class="addrow">
       <input type="text" class="add-input" placeholder="Add an item" aria-label="Add an item" autocomplete="off">
