@@ -319,6 +319,57 @@ class Crud:
         ]
 
     # ------------------------------------------------------------------
+    # History (M3)
+    # ------------------------------------------------------------------
+
+    def recent_checked(self, limit: int = 20) -> list[str]:
+        """Return the most recently checked item names, most recent first.
+
+        Names are deduplicated so each appears at most once.
+        """
+        checked: list[tuple[str, str]] = []
+        for lst in self.data["lists"]:
+            for item in lst["items"]:
+                if item.get("checked_at"):
+                    checked.append((item["checked_at"], item["name"]))
+        checked.sort(key=lambda pair: pair[0], reverse=True)
+        names: list[str] = []
+        for _, name in checked:
+            if name not in names:
+                names.append(name)
+            if len(names) >= limit:
+                break
+        return names
+
+    def repeat_last(self, list_id: str) -> list[Item]:
+        """Copy the items of the most recently completed list into a list.
+
+        The source list keeps its completion state; copied items start
+        unchecked. Returns the created items (empty when no list has been
+        completed yet).
+        """
+        self._find("lists", list_id)
+        completed = [
+            lst
+            for lst in self.data["lists"]
+            if lst["id"] != list_id and lst.get("completed_at")
+        ]
+        if not completed:
+            return []
+        source = max(completed, key=lambda lst: lst["completed_at"])
+        return [
+            self.add_item(
+                list_id,
+                item["name"],
+                section_id=item.get("section_id"),
+                quantity=item.get("quantity"),
+                unit=item.get("unit"),
+                note=item.get("note"),
+            )
+            for item in source["items"]
+        ]
+
+    # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 

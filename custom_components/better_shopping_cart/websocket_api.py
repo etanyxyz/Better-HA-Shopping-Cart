@@ -1,8 +1,11 @@
 """WebSocket API for Better Shopping Cart (PLAN.md §5 frozen contract).
 
-M2: ``sections/*`` and ``layouts/*`` commands. M3 adds ``lists/*``,
-``items/*``, ``templates/*``, ``history/*``, ``settings/*`` and
-``subscribe``. All commands use the ``better_shopping_cart/`` type prefix.
+M2: ``sections/*`` and ``layouts/*`` commands (this module). M3 adds
+``lists/*`` (``ws_lists.py``), ``items/*`` (``ws_items.py``),
+``templates/*`` and ``history/*`` (``ws_templates.py``) and ``settings/*``
+and ``subscribe`` (``ws_settings.py``). All commands use the
+``better_shopping_cart/`` type prefix and are registered together by
+``async_register``.
 
 Parameter names avoid the bare ``id`` key: the top-level ``id`` is
 reserved by the WebSocket message envelope for request correlation (the
@@ -18,37 +21,14 @@ Store-level ``ValueError`` (unknown ids) is mapped to a
 """
 from __future__ import annotations
 
-from typing import Any
-
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .const import DOMAIN, SIGNAL_UPDATED
-from .store import BetterShoppingCartStore
-
-_TYPE = f"{DOMAIN}/"
-Msg = dict[str, Any]
-
-# A section/layout name: a non-empty string.
-_NAME = vol.All(cv.string, vol.Length(min=1))
-
-
-def _get_store(hass: HomeAssistant) -> BetterShoppingCartStore:
-    """Return the loaded store, or a WS-visible error when not set up."""
-    store = hass.data.get(DOMAIN)
-    if store is None:
-        raise HomeAssistantError("Better Shopping Cart is not set up")
-    return store
-
-
-def _as_error(err: ValueError) -> HomeAssistantError:
-    """Map a store-level ValueError (unknown id) to a WS error response."""
-    return HomeAssistantError(str(err))
+from . import ws_items, ws_lists, ws_settings, ws_templates
+from .ws_common import _NAME, _TYPE, Msg, as_error, commit, get_store
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +46,7 @@ async def websocket_sections_list(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/sections/list``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     connection.send_result(
         msg["id"], {"sections": [s.to_dict() for s in store.sections()]}
     )
@@ -86,10 +66,9 @@ async def websocket_sections_create(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/sections/create``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     section = store.create_section(msg["name"], msg.get("icon"))
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+    await commit(hass, store)
     connection.send_result(msg["id"], {"section": section.to_dict()})
 
 
@@ -108,15 +87,14 @@ async def websocket_sections_update(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/sections/update``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     try:
         section = store.update_section(
             msg["section_id"], name=msg.get("name"), icon=msg.get("icon")
         )
     except ValueError as err:
-        raise _as_error(err) from err
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+        raise as_error(err) from err
+    await commit(hass, store)
     connection.send_result(msg["id"], {"section": section.to_dict()})
 
 
@@ -133,13 +111,12 @@ async def websocket_sections_delete(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/sections/delete``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     try:
         store.delete_section(msg["section_id"])
     except ValueError as err:
-        raise _as_error(err) from err
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+        raise as_error(err) from err
+    await commit(hass, store)
     connection.send_result(msg["id"], {})
 
 
@@ -156,10 +133,9 @@ async def websocket_sections_reorder(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/sections/reorder``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     store.reorder_sections(msg["ordered_ids"])
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+    await commit(hass, store)
     connection.send_result(msg["id"], {})
 
 
@@ -178,7 +154,7 @@ async def websocket_layouts_list(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/layouts/list``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     connection.send_result(
         msg["id"], {"layouts": [l.to_dict() for l in store.layouts()]}
     )
@@ -197,10 +173,9 @@ async def websocket_layouts_create(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/layouts/create``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     layout = store.create_layout(msg["name"])
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+    await commit(hass, store)
     connection.send_result(msg["id"], {"layout": layout.to_dict()})
 
 
@@ -220,7 +195,7 @@ async def websocket_layouts_update(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/layouts/update``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     try:
         layout = store.update_layout(
             msg["layout_id"],
@@ -229,9 +204,8 @@ async def websocket_layouts_update(
             hidden_sections=msg.get("hidden_sections"),
         )
     except ValueError as err:
-        raise _as_error(err) from err
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+        raise as_error(err) from err
+    await commit(hass, store)
     connection.send_result(msg["id"], {"layout": layout.to_dict()})
 
 
@@ -248,13 +222,12 @@ async def websocket_layouts_delete(
     msg: Msg,
 ) -> None:
     """Handle ``better_shopping_cart/layouts/delete``."""
-    store = _get_store(hass)
+    store = get_store(hass)
     try:
         store.delete_layout(msg["layout_id"])
     except ValueError as err:
-        raise _as_error(err) from err
-    await store.async_save()
-    async_dispatcher_send(hass, SIGNAL_UPDATED)
+        raise as_error(err) from err
+    await commit(hass, store)
     connection.send_result(msg["id"], {})
 
 
@@ -272,6 +245,10 @@ COMMANDS = (
     websocket_layouts_create,
     websocket_layouts_update,
     websocket_layouts_delete,
+    *ws_lists.COMMANDS,
+    *ws_items.COMMANDS,
+    *ws_templates.COMMANDS,
+    *ws_settings.COMMANDS,
 )
 
 
