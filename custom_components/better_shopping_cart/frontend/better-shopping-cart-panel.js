@@ -9,9 +9,11 @@
  *
  *   panel-view.js          pure HTML builders, shopping view (no DOM access)
  *   panel-store-view.js    pure HTML builders, sections + layouts screens
+ *   panel-template-view.js pure HTML builders, templates + history screens
  *   panel-data.js          store copy: WS calls, refresh, live subscription
  *   panel-actions.js       shopping view actions: add, edit, delete, reorder
  *   panel-store-actions.js store management actions + drag reorder commit
+ *   panel-template-actions.js template/history actions (M8)
  *   panel-drag.js          pointer-event drag reorder helper
  *
  * The panel keeps a local copy of the store (lists, sections, layouts,
@@ -25,10 +27,13 @@ const view = await import(`./panel-view.js?v=${VERSION}`);
 const { dataMixin } = await import(`./panel-data.js?v=${VERSION}`);
 const { actionsMixin } = await import(`./panel-actions.js?v=${VERSION}`);
 const { storeActionsMixin } = await import(`./panel-store-actions.js?v=${VERSION}`);
+const { templateActionsMixin } = await import(
+  `./panel-template-actions.js?v=${VERSION}`
+);
 const { attachDragReorder } = await import(`./panel-drag.js?v=${VERSION}`);
 
 class BetterShoppingCartPanel extends dataMixin(
-  storeActionsMixin(actionsMixin(HTMLElement))
+  templateActionsMixin(storeActionsMixin(actionsMixin(HTMLElement)))
 ) {
   constructor() {
     super();
@@ -47,10 +52,16 @@ class BetterShoppingCartPanel extends dataMixin(
     this._items = [];
     this._activeListId = null;
     this._editingItemId = null;
-    // Store management state (M7): "shopping" | "sections" | "layouts".
+    // Store management state (M7/M8):
+    // "shopping" | "sections" | "layouts" | "templates" | "history".
     this._view = "shopping";
     this._editingSectionId = null;
     this._editingLayoutId = null;
+    // Templates & history state (M8).
+    this._templates = [];
+    this._recentItems = [];
+    this._editingTemplateId = null;
+    this._templateRowSeq = 0;
     this._refreshing = false;
     this._refreshQueued = false;
     this._unsubscribe = null;
@@ -166,10 +177,24 @@ class BetterShoppingCartPanel extends dataMixin(
     this._view = viewName;
     this._editingSectionId = null;
     this._editingLayoutId = null;
+    this._editingTemplateId = null;
     this._root.querySelector(".back-btn").hidden = viewName === "shopping";
     this._root.querySelector(".manage-btn").hidden = viewName !== "shopping";
-    this._root.querySelector(".title").textContent = { shopping: "Shopping Cart", sections: "Sections", layouts: "Layouts" }[viewName];
+    this._root.querySelector(".title").textContent =
+      {
+        shopping: "Shopping Cart",
+        sections: "Sections",
+        layouts: "Layouts",
+        templates: "Templates",
+        history: "History",
+      }[viewName];
     this._renderContent();
+    // Templates and history are fetched on entry (small, rarely needed).
+    if (viewName === "templates") {
+      this._loadTemplates().catch((err) => this._showError(err));
+    } else if (viewName === "history") {
+      this._loadHistory().catch((err) => this._showError(err));
+    }
   }
 
   // ------------------------------------------------------------ rendering
@@ -187,6 +212,9 @@ class BetterShoppingCartPanel extends dataMixin(
     const content = this._root.querySelector(".content");
     if (!content) {
       return;
+    }
+    if (this._view === "templates" || this._view === "history") {
+      return this._renderTemplateContent();
     }
     if (this._view !== "shopping") {
       return this._renderStoreContent();
@@ -240,7 +268,11 @@ class BetterShoppingCartPanel extends dataMixin(
         return;
       }
       const handler =
-        this._view !== "shopping" ? this._onStoreAction : this._onAction;
+        this._view === "shopping"
+          ? this._onAction
+          : this._view === "templates" || this._view === "history"
+            ? this._onTemplateAction
+            : this._onStoreAction;
       safe(handler.call(this, el.dataset.action, el));
     });
     content.addEventListener("change", (event) => {
@@ -268,6 +300,10 @@ class BetterShoppingCartPanel extends dataMixin(
       }
     });
     content.addEventListener("keydown", (event) => {
+      if (this._view === "templates" || this._view === "history") {
+        safe(this._onTemplateKeydown(event));
+        return;
+      }
       if (this._view !== "shopping") {
         safe(this._onStoreKeydown(event));
         return;

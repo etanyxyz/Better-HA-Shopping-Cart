@@ -741,6 +741,66 @@
   color: var(--secondary-text-color, rgba(0, 0, 0, 0.6));
 }
 
+/* ---- templates & history (M8) ----------------------------------------- */
+
+/* Four tabs: wrap into a 2x2 grid on narrow screens. */
+:host([narrow]) .tabs {
+  flex-wrap: wrap;
+}
+
+:host([narrow]) .tab {
+  flex: 1 1 45%;
+  min-width: 0;
+}
+
+/* Template editor item rows: name + qty on the top line, section + actions
+ * on the second. */
+.template-item-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.template-item-main,
+.template-item-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-item-main input,
+.template-item-sub select {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.template-item-main input:focus,
+.template-item-sub select:focus {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+.template-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.template-item-qty {
+  flex: 0 0 64px;
+  width: 64px;
+}
+
+.template-item-section {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* ---- desktop (wide) adjustments --------------------------------------- */
 
 @media (min-width: 600px) {
