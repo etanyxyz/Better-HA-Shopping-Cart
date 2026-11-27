@@ -2,9 +2,10 @@
  * Better Shopping Cart panel - store management views (M7).
  *
  * Pure HTML builders for the sections and layouts screens, no DOM access.
- * The host injects the returned strings into its shadow root. Rows carry
- * `data-drag-row`/`data-drag-id`/`data-drag-handle` attributes for the
- * pointer drag reorder helper (panel-drag.js).
+ * The host injects the returned strings into its shadow root. Layout editor
+ * rows carry `data-drag-row`/`data-drag-id`/`data-drag-handle` attributes
+ * for the pointer drag reorder helper (panel-drag.js); the sections screen
+ * shows the immutable default group and the mutable custom group.
  */
 
 const VERSION = new URL(import.meta.url).searchParams.get("v") || "dev";
@@ -35,13 +36,44 @@ export function storeTabs(active) {
   `;
 }
 
-/** One section row, or the inline edit form while `editing` is true. */
-function sectionRow(section, index, count, editing) {
+/** Mirror of const.py's normalise_name for client-side classification. */
+const normName = (name) => name.toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Normalised names of the immutable default sections (see const.py). */
+const DEFAULT_SECTION_NAMES = [
+  "produce",
+  "dairy",
+  "meat",
+  "bakery",
+  "frozen",
+  "drinks",
+  "household",
+  "pantry",
+  "other",
+  "uncategorised",
+];
+
+/** Whether a section belongs to the immutable default group. */
+export function isDefaultSection(section) {
+  return DEFAULT_SECTION_NAMES.includes(normName(section.name));
+}
+
+/** One default section row: icon + name only (immutable). */
+function defaultRow(section) {
+  return `
+    <div class="store-row" data-section-id="${section.id}">
+      <ha-icon icon="${esc(section.icon)}" class="row-icon"></ha-icon>
+      <span class="row-name">${esc(section.name)}</span>
+    </div>
+  `;
+}
+
+/** One custom section row, or the inline rename form while `editing`. */
+function customRow(section, editing) {
   if (editing) {
     return `
       <div class="store-row row-edit" data-section-id="${section.id}">
         <input type="text" class="section-name-input" value="${esc(section.name)}" aria-label="Section name" autocomplete="off">
-        <input type="text" class="section-icon-input" value="${esc(section.icon)}" placeholder="mdi: name" aria-label="Section icon (mdi: name)" autocomplete="off">
         <div class="edit-actions">
           <button type="button" class="primary-btn" data-action="section-save">Save</button>
           <button type="button" class="text-btn" data-action="section-cancel">Cancel</button>
@@ -51,15 +83,10 @@ function sectionRow(section, index, count, editing) {
   }
   const n = esc(section.name);
   return `
-    <div class="store-row" data-drag-row data-drag-id="${section.id}" data-section-id="${section.id}">
-      <button type="button" class="icon-btn drag-handle" data-drag-handle aria-label="Drag to reorder ${n}">
-        <ha-icon icon="mdi:menu-vertical"></ha-icon>
-      </button>
+    <div class="store-row" data-section-id="${section.id}">
       <ha-icon icon="${esc(section.icon)}" class="row-icon"></ha-icon>
       <span class="row-name">${n}</span>
       <div class="row-actions">
-        ${iconBtn("section-up", "mdi:arrow-up", `Move ${n} up`, index === 0)}
-        ${iconBtn("section-down", "mdi:arrow-down", `Move ${n} down`, index === count - 1)}
         ${iconBtn("section-edit", "mdi:pencil-outline", `Edit ${n}`)}
         ${iconBtn("section-delete", "mdi:delete-outline", `Delete ${n}`, false, true)}
       </div>
@@ -68,14 +95,29 @@ function sectionRow(section, index, count, editing) {
 }
 
 /**
- * Sections screen: create form and one row per section in store order.
+ * Sections screen (NOTES: Sections tab): two groups - the immutable default
+ * sections (icon + name only) and the mutable custom sections (rename and
+ * delete, add form on top). Custom sections always use the cart icon and
+ * keep their creation order.
  *
- * ctx: { sections (sorted by `order`), editingId }
+ * ctx: { defaultSections, customSections (each sorted by `order`),
+ *        editingId }
  */
 export function sectionsScreen(ctx) {
+  const customRows = ctx.customSections.length
+    ? ctx.customSections
+        .map((section) => customRow(section, section.id === ctx.editingId))
+        .join("")
+    : '<p class="hint">No custom sections yet.</p>';
   return `
     ${storeTabs("sections")}
-    <p class="hint">Store order - used when a layout does not override it.</p>
+    <h2 class="shead"><ha-icon icon="mdi:storefront"></ha-icon><span>Default sections</span></h2>
+    <p class="hint">Fixed sections, each with its own icon - they can't be edited, reordered or deleted.</p>
+    <div class="store-list">
+      ${ctx.defaultSections.map(defaultRow).join("")}
+    </div>
+    <h2 class="shead"><ha-icon icon="mdi:cart-variant"></ha-icon><span>Custom sections</span></h2>
+    <p class="hint">Your own sections - they appear after the defaults and use the cart icon.</p>
     <div class="addrow">
       <input type="text" class="add-input store-add-input" placeholder="New section" aria-label="New section name" autocomplete="off">
       <button type="button" class="icon-btn" data-action="section-add" aria-label="Add section" title="Add section">
@@ -83,17 +125,7 @@ export function sectionsScreen(ctx) {
       </button>
     </div>
     <div class="store-list">
-      ${ctx.sections
-        .map(
-          (section, index) =>
-            sectionRow(
-              section,
-              index,
-              ctx.sections.length,
-              section.id === ctx.editingId
-            )
-        )
-        .join("")}
+      ${customRows}
     </div>
   `;
 }

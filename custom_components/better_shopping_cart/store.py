@@ -19,6 +19,7 @@ from .const import (
     DEFAULT_CATEGORY_MAP,
     DEFAULT_LAYOUT_NAME,
     DEFAULT_SECTIONS,
+    DEFAULT_SECTION_ICONS,
     DEFAULT_SETTINGS,
     SECTION_UNCATEGORISED,
     STORAGE_KEY,
@@ -69,6 +70,8 @@ class BetterShoppingCartStore(Crud):
             self._data = self._seed()
         else:
             self._data = stored
+            if self._migrate_default_sections():
+                await self.async_save()
 
     async def async_save(self) -> None:
         """Persist the in-memory payload to disk."""
@@ -98,6 +101,52 @@ class BetterShoppingCartStore(Crud):
                 section_id_by_name.get(section_name) or fallback
             )
         return data
+
+    def _migrate_default_sections(self) -> bool:
+        """Normalise the immutable default sections (NOTES: Sections tab).
+
+        Default sections are identified by name: an existing default keeps
+        its id, regains its canonical icon and fixed position (its index in
+        DEFAULT_SECTIONS); a missing default is re-added. Custom sections
+        keep their ids and relative order and are renumbered contiguously
+        after the defaults, so the stored order is always "defaults first,
+        then customs". Returns True when the payload changed.
+        """
+        by_name = {
+            normalise_name(entry["name"]): entry for entry in self.data["sections"]
+        }
+        changed = False
+        for order, (name, icon) in enumerate(DEFAULT_SECTIONS):
+            entry = by_name.get(normalise_name(name))
+            if entry is None:
+                self.data["sections"].append(
+                    {
+                        "id": models.new_id(),
+                        "name": name,
+                        "icon": icon,
+                        "order": order,
+                    }
+                )
+                changed = True
+            elif entry["icon"] != icon or entry["order"] != order:
+                entry["icon"] = icon
+                entry["order"] = order
+                changed = True
+        customs = sorted(
+            (
+                entry
+                for entry in self.data["sections"]
+                if normalise_name(entry["name"]) not in DEFAULT_SECTION_ICONS
+            ),
+            key=lambda entry: entry["order"],
+        )
+        for offset, entry in enumerate(customs):
+            if entry["order"] != len(DEFAULT_SECTIONS) + offset:
+                entry["order"] = len(DEFAULT_SECTIONS) + offset
+                changed = True
+        if changed:
+            _LOGGER.info("Migrated shopping cart sections to the default set")
+        return changed
 
     # ------------------------------------------------------------------
     # Read access
@@ -211,7 +260,7 @@ class BetterShoppingCartStore(Crud):
         entry: dict[str, Any] = {
             "id": models.new_id(),
             "name": SECTION_UNCATEGORISED,
-            "icon": "mdi:help-circle",
+            "icon": DEFAULT_SECTION_ICONS[normalise_name(SECTION_UNCATEGORISED)],
             "order": len(self.data["sections"]),
         }
         self.data["sections"].append(entry)

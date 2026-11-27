@@ -15,6 +15,7 @@ from custom_components.better_shopping_cart.const import (
     DEFAULT_SECTIONS,
     DEFAULT_SETTINGS,
     SECTION_UNCATEGORISED,
+    STORAGE_VERSION,
     normalise_name,
 )
 from custom_components.better_shopping_cart.models import TemplateItem
@@ -76,26 +77,26 @@ async def test_corrupt_file_falls_back_to_defaults(store, monkeypatch):
 
 async def test_section_crud(store):
     await store.async_load()
+    # custom sections always use the cart icon; the requested icon is ignored
     section = store.create_section("Deli", icon="mdi:cheese")
     assert section.name == "Deli"
-    assert section.icon == "mdi:cheese"
+    assert section.icon == "mdi:cart"
     assert section.order == len(DEFAULT_SECTIONS)
 
     updated = store.update_section(section.id, name="Deli Counter")
     assert updated.name == "Deli Counter"
-    assert updated.icon == "mdi:cheese"
+    assert updated.icon == "mdi:cart"
 
     icon_only = store.update_section(section.id, icon="mdi:knife")
     assert icon_only.name == "Deli Counter"
-    assert icon_only.icon == "mdi:knife"
+    assert icon_only.icon == "mdi:cart"
 
-    produce_id = next(s.id for s in store.sections() if s.name == "Produce")
-    dairy_id = next(s.id for s in store.sections() if s.name == "Dairy")
-    store.reorder_sections([dairy_id, produce_id, section.id])
+    # reordering moves custom sections; defaults keep their fixed positions
+    second = store.create_section("Second")
+    store.reorder_sections([second.id, section.id])
     orders = {s.name: s.order for s in store.sections()}
-    assert orders["Dairy"] == 0
-    assert orders["Produce"] == 1
-    assert orders["Deli Counter"] == 2
+    assert orders["Second"] == len(DEFAULT_SECTIONS)
+    assert orders["Deli Counter"] == len(DEFAULT_SECTIONS) + 1
 
     store.delete_section(section.id)
     assert store.section(section.id) is None
@@ -103,22 +104,106 @@ async def test_section_crud(store):
         store.update_section(section.id, name="x")
 
 
+async def test_default_sections_are_immutable(store):
+    await store.async_load()
+    ids = {s.name: s.id for s in store.sections()}
+
+    with pytest.raises(ValueError, match="cannot be created"):
+        store.create_section("dairy")
+    with pytest.raises(ValueError, match="cannot be renamed"):
+        store.update_section(ids["Dairy"], name="Cheese")
+    custom_id = store.create_section("Custom").id
+    with pytest.raises(ValueError, match="default section name"):
+        store.update_section(custom_id, name="Pantry")
+    with pytest.raises(ValueError, match="cannot be deleted"):
+        store.delete_section(ids["Produce"])
+    with pytest.raises(ValueError, match="cannot be reordered"):
+        store.reorder_sections([ids["Dairy"], ids["Produce"]] + list(ids))
+
+    # the rejected calls mutated nothing (beyond the "Custom" section itself)
+    store.delete_section(custom_id)
+    assert [s.name for s in store.sections()] == [
+        name for name, _ in DEFAULT_SECTIONS
+    ]
+    assert [s.order for s in store.sections()] == list(range(len(DEFAULT_SECTIONS)))
+
+
 async def test_delete_section_moves_items_and_cleans_layouts(store):
     await store.async_load()
-    produce_id = next(s.id for s in store.sections() if s.name == "Produce")
+    custom = store.create_section("Deli")
     other_id = next(s.id for s in store.sections() if s.name == "Other")
     layout = store.layouts()[0]
-    layout = store.update_layout(layout.id, hidden_sections=[produce_id])
+    store.update_layout(layout.id, hidden_sections=[custom.id])
 
     lst = store.create_list("Weekly")
-    item = store.add_item(lst.id, "Apples", section_id=produce_id)
+    item = store.add_item(lst.id, "Salami", section_id=custom.id)
 
-    store.delete_section(produce_id)
+    store.delete_section(custom.id)
 
     moved = store.item(lst.id, item.id)
     assert moved.section_id == other_id
-    assert produce_id not in store.layouts()[0].section_order
-    assert produce_id not in store.layouts()[0].hidden_sections
+    assert custom.id not in store.layouts()[0].section_order
+    assert custom.id not in store.layouts()[0].hidden_sections
+
+
+async def test_load_migrates_default_sections(store, hass):
+    """An older payload (NOTES: Sections tab) is normalised on load.
+
+    Missing defaults come back, defaults regain their canonical icons and
+    fixed positions, and a section whose name now collides with a default
+    (here "Pantry") becomes a default. Customs keep their ids and relative
+    order and are renumbered after the defaults; the result is persisted.
+    """
+    old_payload = {
+        "version": STORAGE_VERSION,
+        "sections": [
+            {"id": "dairy", "name": "Dairy", "icon": "mdi:milk", "order": 0},
+            {"id": "meat", "name": "Meat", "icon": "mdi:beef", "order": 1},
+            {"id": "bakery", "name": "Bakery", "icon": "mdi:bread", "order": 2},
+            {"id": "frozen", "name": "Frozen", "icon": "mdi:snowflake", "order": 3},
+            {"id": "drinks", "name": "Drinks", "icon": "mdi:soda", "order": 4},
+            {"id": "household", "name": "Household", "icon": "mdi:spray", "order": 5},
+            {"id": "other", "name": "Other", "icon": "mdi:dots-triangle", "order": 6},
+            {"id": "uncat", "name": "Uncategorised", "icon": "mdi:help-circle", "order": 7},
+            {"id": "pantry", "name": "Pantry", "icon": "mdi:cart", "order": 8},
+            {"id": "deli", "name": "Deli", "icon": "mdi:cart", "order": 9},
+            {"id": "extra", "name": "Extra", "icon": "mdi:cart", "order": 10},
+        ],
+        "layouts": [],
+        "lists": [],
+        "templates": [],
+        "category_map": {},
+        "settings": dict(DEFAULT_SETTINGS),
+    }
+    await store._store.async_save(old_payload)
+
+    fresh = BetterShoppingCartStore(hass)
+    await fresh.async_load()
+    by_name = {s.name: s for s in fresh.sections()}
+
+    # "Produce" is restored; "Pantry" became a default with its canonical
+    # icon and fixed position (index 7 in DEFAULT_SECTIONS)
+    assert by_name["Produce"].icon == "mdi:carrot"
+    assert by_name["Produce"].order == 0
+    assert by_name["Pantry"].id == "pantry"
+    assert by_name["Pantry"].icon == "mdi:package-variant"
+    assert by_name["Pantry"].order == 7
+    # broken icons are replaced by the canonical ones
+    assert by_name["Dairy"].icon == "mdi:cheese"
+    assert by_name["Meat"].icon == "mdi:cow"
+    assert by_name["Bakery"].icon == "mdi:baguette"
+    assert by_name["Drinks"].icon == "mdi:glass-mug"
+    # customs keep their ids and relative order, renumbered after defaults
+    assert by_name["Deli"].order == len(DEFAULT_SECTIONS)
+    assert by_name["Extra"].order == len(DEFAULT_SECTIONS) + 1
+    assert [s.name for s in fresh.sections()] == [
+        n for n, _ in DEFAULT_SECTIONS
+    ] + ["Deli", "Extra"]
+
+    # the migration persisted: a second load is a no-op
+    again = BetterShoppingCartStore(hass)
+    await again.async_load()
+    assert [s.id for s in again.sections()] == [s.id for s in fresh.sections()]
 
 
 # ----------------------------------------------------------------------

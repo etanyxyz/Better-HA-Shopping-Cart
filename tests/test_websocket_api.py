@@ -62,13 +62,15 @@ class TestSections:
         assert all(s["id"] and s["icon"] for s in sections)
 
     async def test_create_section(self, bsc_ws):
+        # the icon is accepted for contract compatibility but ignored:
+        # custom sections always use the cart icon (NOTES: Sections tab)
         result = await ws_call(
             bsc_ws, "sections/create", name="Test Section", icon="mdi:test"
         )
         assert result["success"] is True
         section = result["result"]["section"]
         assert section["name"] == "Test Section"
-        assert section["icon"] == "mdi:test"
+        assert section["icon"] == "mdi:cart"
         assert section["order"] == len(DEFAULT_SECTIONS)
         sections = await sections_by_id(bsc_ws)
         assert sections[section["id"]]["name"] == "Test Section"
@@ -83,26 +85,51 @@ class TestSections:
         assert result["error"]["code"] == "invalid_format"
         assert "name" in result["error"]["message"]
 
+    async def test_create_default_name_rejected(self, bsc_ws):
+        # default names are immutable, even with different casing
+        result = await ws_call(bsc_ws, "sections/create", name="dairy")
+        assert result["success"] is False
+        assert result["error"]["code"] == "home_assistant_error"
+        assert "default section" in result["error"]["message"]
+
     async def test_update_section(self, bsc_ws):
-        sections = await sections_by_id(bsc_ws)
-        section_id, current = next(iter(sections.items()))
+        created = await ws_call(bsc_ws, "sections/create", name="Before")
+        section_id = created["result"]["section"]["id"]
         result = await ws_call(
             bsc_ws, "sections/update", section_id=section_id, name="Renamed", icon="mdi:apple"
         )
         assert result["success"] is True
         section = result["result"]["section"]
         assert section["name"] == "Renamed"
-        assert section["icon"] == "mdi:apple"
-        assert section["order"] == current["order"]
+        assert section["icon"] == "mdi:cart"
 
     async def test_update_section_partial(self, bsc_ws):
-        sections = await sections_by_id(bsc_ws)
-        section_id, current = next(iter(sections.items()))
-        # omitting ``name`` leaves it untouched
+        created = await ws_call(bsc_ws, "sections/create", name="Plain")
+        section_id = created["result"]["section"]["id"]
+        # omitting ``name`` leaves it untouched; the icon stays the cart icon
         result = await ws_call(bsc_ws, "sections/update", section_id=section_id, icon="mdi:egg")
         section = result["result"]["section"]
-        assert section["name"] == current["name"]
-        assert section["icon"] == "mdi:egg"
+        assert section["name"] == "Plain"
+        assert section["icon"] == "mdi:cart"
+
+    async def test_update_default_section_rejected(self, bsc_ws):
+        ids = await section_ids_by_name(bsc_ws)
+        result = await ws_call(
+            bsc_ws, "sections/update", section_id=ids["Dairy"], name="Cheese"
+        )
+        assert result["success"] is False
+        assert result["error"]["code"] == "home_assistant_error"
+        assert "cannot be renamed" in result["error"]["message"]
+
+    async def test_rename_custom_to_default_name_rejected(self, bsc_ws):
+        created = await ws_call(bsc_ws, "sections/create", name="Custom")
+        section_id = created["result"]["section"]["id"]
+        result = await ws_call(
+            bsc_ws, "sections/update", section_id=section_id, name="Pantry"
+        )
+        assert result["success"] is False
+        assert result["error"]["code"] == "home_assistant_error"
+        assert "default section name" in result["error"]["message"]
 
     async def test_update_section_unknown_id(self, bsc_ws):
         result = await ws_call(bsc_ws, "sections/update", section_id="does-not-exist")
@@ -111,8 +138,8 @@ class TestSections:
         assert "unknown section" in result["error"]["message"]
 
     async def test_delete_section(self, bsc_ws):
-        sections = await sections_by_id(bsc_ws)
-        section_id = next(iter(sections))
+        created = await ws_call(bsc_ws, "sections/create", name="Doomed")
+        section_id = created["result"]["section"]["id"]
         result = await ws_call(bsc_ws, "sections/delete", section_id=section_id)
         assert result["success"] is True
         assert result["result"] == {}
@@ -124,42 +151,84 @@ class TestSections:
             assert section_id not in layout["section_order"]
             assert section_id not in layout["hidden_sections"]
 
+    async def test_delete_default_section_rejected(self, bsc_ws):
+        ids = await section_ids_by_name(bsc_ws)
+        result = await ws_call(
+            bsc_ws, "sections/delete", section_id=ids["Produce"]
+        )
+        assert result["success"] is False
+        assert result["error"]["code"] == "home_assistant_error"
+        assert "cannot be deleted" in result["error"]["message"]
+
     async def test_delete_section_unknown_id(self, bsc_ws):
         result = await ws_call(bsc_ws, "sections/delete", section_id="does-not-exist")
         assert result["success"] is False
         assert result["error"]["code"] == "home_assistant_error"
 
-    async def test_reorder_sections_persists(self, bsc_ws, hass):
-        sections = await sections_by_id(bsc_ws)
-        ordered_ids = list(sections)
-        reversed_ids = list(reversed(ordered_ids))
+    async def test_reorder_custom_sections_persists(self, bsc_ws, hass):
+        a = await ws_call(bsc_ws, "sections/create", name="A")
+        b = await ws_call(bsc_ws, "sections/create", name="B")
+        c = await ws_call(bsc_ws, "sections/create", name="C")
+        a_id = a["result"]["section"]["id"]
+        b_id = b["result"]["section"]["id"]
+        c_id = c["result"]["section"]["id"]
 
-        result = await ws_call(bsc_ws, "sections/reorder", ordered_ids=reversed_ids)
+        # reorder the customs in reverse; defaults keep their positions
+        result = await ws_call(
+            bsc_ws, "sections/reorder", ordered_ids=[c_id, b_id, a_id]
+        )
         assert result["success"] is True
         assert result["result"] == {}
 
         after = await ws_call(bsc_ws, "sections/list")
         listed = after["result"]["sections"]
-        assert [s["id"] for s in listed] == reversed_ids
-        assert [s["order"] for s in listed] == list(range(len(listed)))
+        customs = [s for s in listed if s["name"] in ("A", "B", "C")]
+        assert [s["id"] for s in customs] == [c_id, b_id, a_id]
+        assert [s["order"] for s in customs] == list(
+            range(len(DEFAULT_SECTIONS), len(DEFAULT_SECTIONS) + 3)
+        )
+        defaults = [
+            s for s in listed if s["name"] not in ("A", "B", "C")
+        ]
+        assert [s["name"] for s in defaults] == [n for n, _ in DEFAULT_SECTIONS]
 
         # a fresh store instance (e.g. after a restart) sees the persisted order
         fresh = BetterShoppingCartStore(hass)
         await fresh.async_load()
-        assert [s.id for s in fresh.sections()] == reversed_ids
+        listed_fresh = {s.name: s.id for s in fresh.sections()}
+        orders = {s.id: s.order for s in fresh.sections()}
+        assert orders[listed_fresh["C"]] < orders[listed_fresh["B"]] < orders[
+            listed_fresh["A"]
+        ]
+
+    async def test_reorder_default_rejected(self, bsc_ws):
+        ids = await section_ids_by_name(bsc_ws)
+        all_ids = list((await sections_by_id(bsc_ws)))
+        swapped = [all_ids[1], all_ids[0]] + all_ids[2:]
+        result = await ws_call(
+            bsc_ws, "sections/reorder", ordered_ids=swapped
+        )
+        assert result["success"] is False
+        assert result["error"]["code"] == "home_assistant_error"
+        assert "cannot be reordered" in result["error"]["message"]
+        # the rejected reorder left the store untouched
+        after = await section_ids_by_name(bsc_ws)
+        assert after == ids
 
     async def test_reorder_ignores_unknown_ids(self, bsc_ws):
-        sections = await sections_by_id(bsc_ws)
-        ordered_ids = list(sections)
+        a = await ws_call(bsc_ws, "sections/create", name="A")
+        b = await ws_call(bsc_ws, "sections/create", name="B")
+        a_id = a["result"]["section"]["id"]
+        b_id = b["result"]["section"]["id"]
         result = await ws_call(
             bsc_ws,
             "sections/reorder",
-            ordered_ids=[ordered_ids[-1], "bogus-id", ordered_ids[0]],
+            ordered_ids=[b_id, "bogus-id", a_id],
         )
         assert result["success"] is True
         after = await sections_by_id(bsc_ws)
-        assert after[ordered_ids[-1]]["order"] == 0
-        assert after[ordered_ids[0]]["order"] == 1
+        assert after[b_id]["order"] == len(DEFAULT_SECTIONS)
+        assert after[a_id]["order"] == len(DEFAULT_SECTIONS) + 1
 
     async def test_mutating_command_fires_signal(self, bsc_ws, hass):
         signals = []

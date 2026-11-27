@@ -2,8 +2,10 @@
  * Better Shopping Cart panel - store management actions (M7).
  *
  * The mutations behind the sections and layouts screens: create, rename,
- * delete, set icon, reorder (up/down buttons and pointer drag), hidden
- * sections, default layout, and the shopping view's layout switch.
+ * delete, reorder (pointer drag, layouts only), hidden sections, default
+ * layout, and the shopping view's layout switch. The default sections are
+ * immutable (NOTES: Sections tab); custom sections keep their creation
+ * order.
  * Expects the data mixin's methods (`_ws`, `_refresh`) and the host's
  * `_renderContent()`, plus the state fields `_view`, `_editingSectionId`
  * and `_editingLayoutId` initialised in the host's constructor.
@@ -24,8 +26,10 @@ export const storeActionsMixin = (base) =>
         return;
       }
       if (this._view === "sections") {
+        const sorted = [...this._sections].sort((a, b) => a.order - b.order);
         content.innerHTML = storeView.sectionsScreen({
-          sections: [...this._sections].sort((a, b) => a.order - b.order),
+          defaultSections: sorted.filter(storeView.isDefaultSection),
+          customSections: sorted.filter((s) => !storeView.isDefaultSection(s)),
           editingId: this._editingSectionId,
         });
         this._focusStoreInput(".section-name-input");
@@ -90,13 +94,6 @@ export const storeActionsMixin = (base) =>
         case "section-cancel":
           this._editingSectionId = null;
           this._renderContent();
-          break;
-        case "section-up":
-        case "section-down":
-          await this._reorderSection(
-            el.closest("[data-section-id]"),
-            action === "section-up" ? -1 : 1
-          );
           break;
         case "section-delete":
           await this._ws("sections/delete", {
@@ -185,7 +182,7 @@ export const storeActionsMixin = (base) =>
         }
       } else if (
         event.key === "Enter" &&
-        (cls.contains("section-name-input") || cls.contains("section-icon-input"))
+        cls.contains("section-name-input")
       ) {
         event.preventDefault();
         await this._saveSection(t.closest("[data-section-id]"));
@@ -198,12 +195,9 @@ export const storeActionsMixin = (base) =>
       }
     }
 
-    /** Drag reorder committed by the pointer drag helper. */
+    /** Drag reorder committed by the pointer drag helper (layout editor). */
     async _onDragReorder(ids) {
-      if (this._view === "sections") {
-        await this._ws("sections/reorder", { ordered_ids: ids });
-        await this._refresh();
-      } else if (this._view === "layouts" && this._editingLayoutId) {
+      if (this._view === "layouts" && this._editingLayoutId) {
         const layout = this._layouts.find((l) => l.id === this._editingLayoutId);
         if (!layout) {
           return;
@@ -241,29 +235,10 @@ export const storeActionsMixin = (base) =>
       if (!name) {
         return;
       }
-      const icon = row.querySelector(".section-icon-input").value.trim() || "mdi:cart";
       this._editingSectionId = null;
       await this._ws("sections/update", {
         section_id: row.dataset.sectionId,
         name,
-        icon,
-      });
-      await this._refresh();
-    }
-
-    async _reorderSection(row, delta) {
-      if (!row) {
-        return;
-      }
-      const ordered = [...this._sections].sort((a, b) => a.order - b.order);
-      const index = ordered.findIndex((s) => s.id === row.dataset.sectionId);
-      const target = index + delta;
-      if (index < 0 || target < 0 || target >= ordered.length) {
-        return;
-      }
-      [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-      await this._ws("sections/reorder", {
-        ordered_ids: ordered.map((s) => s.id),
       });
       await this._refresh();
     }

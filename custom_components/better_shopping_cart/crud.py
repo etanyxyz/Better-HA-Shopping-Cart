@@ -10,10 +10,14 @@ from __future__ import annotations
 from typing import Any
 
 from . import models
+from .const import DEFAULT_SECTION_ICONS, normalise_name
 from .models import Item, Layout, Section, ShoppingList, Template, TemplateItem
 
 # Sentinel: "field not provided" for update helpers (None has meaning of its own).
 _UNCHANGED = object()
+
+# Icon every custom section uses for now (NOTES: Sections tab).
+CUSTOM_SECTION_ICON = "mdi:cart"
 
 
 class Crud:
@@ -24,11 +28,18 @@ class Crud:
     # ------------------------------------------------------------------
 
     def create_section(self, name: str, icon: str | None = None) -> Section:
-        """Create a section at the end of the default order."""
+        """Create a custom section at the end of the store order.
+
+        ``icon`` is accepted for contract compatibility but ignored: custom
+        sections always use the default cart icon for now. Names colliding
+        with a default section are rejected (NOTES: Sections tab).
+        """
+        if normalise_name(name) in DEFAULT_SECTION_ICONS:
+            raise ValueError(f"'{name}' is a default section and cannot be created")
         entry: dict[str, Any] = {
             "id": models.new_id(),
             "name": name,
-            "icon": icon or "mdi:cart",
+            "icon": CUSTOM_SECTION_ICON,
             "order": max((s["order"] for s in self.data["sections"]), default=-1) + 1,
         }
         self.data["sections"].append(entry)
@@ -37,21 +48,39 @@ class Crud:
     def update_section(
         self, section_id: str, *, name: str | None = None, icon: str | None = None
     ) -> Section:
-        """Update the name and/or icon of a section."""
+        """Rename a custom section.
+
+        Default sections are immutable: renaming is rejected and the icon
+        always resets to the canonical one. Custom sections use the default
+        cart icon for now, so ``icon`` is ignored.
+        """
         entry = self._find("sections", section_id)
-        if name is not None:
+        key = normalise_name(entry["name"])
+        if key in DEFAULT_SECTION_ICONS:
+            if name is not None and normalise_name(name) != key:
+                raise ValueError(
+                    f"'{entry['name']}' is a default section and cannot be renamed"
+                )
+            entry["icon"] = DEFAULT_SECTION_ICONS[key]
+        elif name is not None:
+            if normalise_name(name) in DEFAULT_SECTION_ICONS:
+                raise ValueError(f"'{name}' is a default section name")
             entry["name"] = name
-        if icon is not None:
-            entry["icon"] = icon
+            entry["icon"] = CUSTOM_SECTION_ICON
         return Section.from_dict(entry)
 
     def delete_section(self, section_id: str) -> None:
-        """Delete a section.
+        """Delete a custom section.
 
         Items in it move to "Other" (or the first remaining section when
         "Other" itself is deleted); layout references are cleaned up.
+        Default sections cannot be deleted (NOTES: Sections tab).
         """
         entry = self._find("sections", section_id)
+        if normalise_name(entry["name"]) in DEFAULT_SECTION_ICONS:
+            raise ValueError(
+                f"'{entry['name']}' is a default section and cannot be deleted"
+            )
         remaining = [s for s in self.data["sections"] if s["id"] != section_id]
         target = next(
             (s for s in remaining if s["name"] == "Other"),
@@ -72,15 +101,30 @@ class Crud:
         self.data["sections"].remove(entry)
 
     def reorder_sections(self, ordered_ids: list[str]) -> None:
-        """Set the default order from a full or partial id list.
+        """Set the custom section order from a full or partial id list.
 
-        Unknown ids are ignored; the remaining sections keep their relative
-        order and are renumbered contiguously.
+        Default sections keep their fixed canonical positions (NOTES:
+        Sections tab); unknown ids are ignored; custom sections are
+        renumbered contiguously after the defaults.
         """
         by_id = {s["id"]: s for s in self.data["sections"]}
         known = [i for i in ordered_ids if i in by_id]
+        defaults = sorted(
+            (
+                s
+                for s in self.data["sections"]
+                if normalise_name(s["name"]) in DEFAULT_SECTION_ICONS
+            ),
+            key=lambda s: s["order"],
+        )
+        expected = {s["id"]: position for position, s in enumerate(defaults)}
         for position, section_id in enumerate(known):
-            by_id[section_id]["order"] = position
+            if section_id in expected and expected[section_id] != position:
+                raise ValueError("default sections cannot be reordered")
+        for offset, section_id in enumerate(
+            (i for i in known if i not in expected)
+        ):
+            by_id[section_id]["order"] = len(defaults) + offset
 
     # ------------------------------------------------------------------
     # Layouts

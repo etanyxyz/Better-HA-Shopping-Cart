@@ -67,7 +67,10 @@ async def websocket_sections_create(
 ) -> None:
     """Handle ``better_shopping_cart/sections/create``."""
     store = get_store(hass)
-    section = store.create_section(msg["name"], msg.get("icon"))
+    try:
+        section = store.create_section(msg["name"], msg.get("icon"))
+    except ValueError as err:
+        raise as_error(err) from err
     await commit(hass, store)
     connection.send_result(msg["id"], {"section": section.to_dict()})
 
@@ -134,7 +137,10 @@ async def websocket_sections_reorder(
 ) -> None:
     """Handle ``better_shopping_cart/sections/reorder``."""
     store = get_store(hass)
-    store.reorder_sections(msg["ordered_ids"])
+    try:
+        store.reorder_sections(msg["ordered_ids"])
+    except ValueError as err:
+        raise as_error(err) from err
     await commit(hass, store)
     connection.send_result(msg["id"], {})
 

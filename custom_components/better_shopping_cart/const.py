@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 DOMAIN = "better_shopping_cart"
-VERSION = "0.1.11"
+VERSION = "0.1.12"
 
 CONF_NAME = "name"
 
@@ -59,17 +59,30 @@ def normalise_name(name: str) -> str:
     return " ".join(name.lower().split())
 
 
-# Default sections seeded on first run: (name, mdi icon).
+# Default sections (NOTES: Sections tab): the immutable set, seeded on first
+# run and restored by the load-time migration. Each default section keeps a
+# unique canonical icon; icons must render in the HA frontend's bundled MDI
+# set (e.g. mdi:milk does not).
 DEFAULT_SECTIONS: list[tuple[str, str]] = [
     ("Produce", "mdi:carrot"),
-    ("Dairy", "mdi:milk"),
-    ("Meat", "mdi:beef"),
-    ("Bakery", "mdi:bread"),
+    ("Dairy", "mdi:cheese"),
+    ("Meat", "mdi:cow"),
+    ("Bakery", "mdi:baguette"),
     ("Frozen", "mdi:snowflake"),
-    ("Drinks", "mdi:soda"),
+    ("Drinks", "mdi:glass-mug"),
     ("Household", "mdi:spray"),
+    ("Pantry", "mdi:package-variant"),
     ("Other", "mdi:dots-triangle"),
+    ("Uncategorised", "mdi:help-circle"),
 ]
+
+# Normalised name -> canonical icon of the immutable default sections.
+# A section whose normalised name is a key here is a default section: it
+# cannot be created, deleted, renamed, reordered or re-iconed.
+DEFAULT_SECTION_ICONS: dict[str, str] = {
+    normalise_name(name): icon for name, icon in DEFAULT_SECTIONS
+}
+DEFAULT_SECTION_NAMES: frozenset[str] = frozenset(DEFAULT_SECTION_ICONS)
 
 # Built-in fallback dictionary for auto-categorisation:
 # normalised item name -> seeded section name (~80 common groceries).
