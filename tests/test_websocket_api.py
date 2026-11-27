@@ -915,6 +915,70 @@ class TestSettings:
         assert "unknown list" in result["error"]["message"]
 
 
+class TestItemNotifications:
+    """M9: the notify service is called on items/add when enabled."""
+
+    async def _register_fake_service(self, hass, service="demo"):
+        calls: list = []
+
+        async def fake(call) -> None:
+            calls.append(call)
+
+        hass.services.async_register("notify", service, fake)
+        return calls
+
+    async def test_add_item_notifies_when_enabled(self, bsc_ws, hass, hass_admin_user):
+        calls = await self._register_fake_service(hass)
+        await ws_call(
+            bsc_ws,
+            "settings/update",
+            notify_on_add=True,
+            notify_service="notify.demo",
+        )
+        shopping_list = await create_list(bsc_ws, "Test List")
+        added = await add_item(bsc_ws, shopping_list["id"], "Salsa")
+        await hass.async_block_till_done()
+        assert added["name"] == "Salsa"
+        assert len(calls) == 1
+        call = calls[0]
+        assert call.domain == "notify"
+        assert call.service == "demo"
+        assert (
+            call.data["message"]
+            == f"{hass_admin_user.name} added Salsa to Test List"
+        )
+
+    async def test_add_item_silent_when_disabled(self, bsc_ws, hass):
+        calls = await self._register_fake_service(hass)
+        # notify_on_add is False by default: no service call
+        shopping_list = await create_list(bsc_ws, "Test List")
+        await add_item(bsc_ws, shopping_list["id"], "Salsa")
+        await hass.async_block_till_done()
+        assert calls == []
+
+    async def test_add_item_succeeds_when_service_missing(self, bsc_ws, hass):
+        await ws_call(
+            bsc_ws,
+            "settings/update",
+            notify_on_add=True,
+            notify_service="notify.does_not_exist",
+        )
+        shopping_list = await create_list(bsc_ws, "Test List")
+        added = await add_item(bsc_ws, shopping_list["id"], "Salsa")
+        await hass.async_block_till_done()
+        # the add is unaffected by the missing notify service
+        assert added["name"] == "Salsa"
+
+    async def test_add_item_succeeds_with_invalid_service(self, bsc_ws, hass):
+        # not in the "<domain>.<service>" form
+        await ws_call(
+            bsc_ws, "settings/update", notify_on_add=True, notify_service="nope"
+        )
+        shopping_list = await create_list(bsc_ws, "Test List")
+        added = await add_item(bsc_ws, shopping_list["id"], "Salsa")
+        assert added["name"] == "Salsa"
+
+
 class TestSubscribe:
     async def test_subscribe_streams_update_events(self, bsc_ws):
         shopping_list = await create_list(bsc_ws)

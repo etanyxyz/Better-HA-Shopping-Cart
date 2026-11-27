@@ -743,13 +743,13 @@
 
 /* ---- templates & history (M8) ----------------------------------------- */
 
-/* Four tabs: wrap into a 2x2 grid on narrow screens. */
+/* Five tabs (M9 adds Settings): wrap into 3+2 on narrow screens. */
 :host([narrow]) .tabs {
   flex-wrap: wrap;
 }
 
 :host([narrow]) .tab {
-  flex: 1 1 45%;
+  flex: 1 1 31%;
   min-width: 0;
 }
 
@@ -799,6 +799,44 @@
 .template-item-section {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* ---- settings (M9) ---------------------------------------------------- */
+
+/* The section heading used by the settings screen (spaced like .shead). */
+.settings-shead {
+  margin-top: 16px;
+}
+
+.settings-row select {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 48%;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-background-color, #ffffff);
+  color: inherit;
+  font-size: 15px;
+}
+
+.settings-row select:focus {
+  outline: 2px solid var(--primary-color, #03a9f4);
+  outline-offset: 0;
+  border-color: transparent;
+}
+
+/* Checked state for the settings toggles (the .item-scoped rule does not
+ * apply outside item rows). */
+.settings-row .check:has(input:checked) {
+  border-color: var(--primary-color, #03a9f4);
+  background: var(--primary-color, #03a9f4);
+}
+
+.settings-row .check:has(input:checked) ha-icon {
+  opacity: 1;
+  color: var(--primary-background-color, #ffffff);
 }
 
 /* ---- desktop (wide) adjustments --------------------------------------- */

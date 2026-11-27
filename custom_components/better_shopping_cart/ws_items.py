@@ -23,6 +23,7 @@ from .ws_common import (
     as_error,
     commit,
     get_store,
+    notify_item_added,
 )
 
 
@@ -67,6 +68,8 @@ async def websocket_items_add(
     """Handle ``better_shopping_cart/items/add``.
 
     Without ``section_id`` the item is auto-categorised (PLAN.md §5).
+    With ``notify_on_add`` enabled, the configured notify service is
+    called with ``"<user> added <item> to <list>"`` (PLAN.md M9).
     """
     store = get_store(hass)
     try:
@@ -85,6 +88,13 @@ async def websocket_items_add(
         raise as_error(err) from err
     await commit(hass, store)
     connection.send_result(msg["id"], {"item": item.to_dict()})
+    await notify_item_added(
+        hass,
+        connection,
+        store.settings(),
+        item,
+        store.shopping_list(msg["list_id"]).name,
+    )
 
 
 @websocket_api.websocket_command(

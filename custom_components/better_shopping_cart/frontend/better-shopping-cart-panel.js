@@ -10,10 +10,12 @@
  *   panel-view.js          pure HTML builders, shopping view (no DOM access)
  *   panel-store-view.js    pure HTML builders, sections + layouts screens
  *   panel-template-view.js pure HTML builders, templates + history screens
+ *   panel-settings-view.js pure HTML builder, settings screen (M9)
  *   panel-data.js          store copy: WS calls, refresh, live subscription
  *   panel-actions.js       shopping view actions: add, edit, delete, reorder
  *   panel-store-actions.js store management actions + drag reorder commit
  *   panel-template-actions.js template/history actions (M8)
+ *   panel-settings-actions.js settings actions (M9)
  *   panel-drag.js          pointer-event drag reorder helper
  *
  * The panel keeps a local copy of the store (lists, sections, layouts,
@@ -30,10 +32,15 @@ const { storeActionsMixin } = await import(`./panel-store-actions.js?v=${VERSION
 const { templateActionsMixin } = await import(
   `./panel-template-actions.js?v=${VERSION}`
 );
+const { settingsActionsMixin } = await import(
+  `./panel-settings-actions.js?v=${VERSION}`
+);
 const { attachDragReorder } = await import(`./panel-drag.js?v=${VERSION}`);
 
 class BetterShoppingCartPanel extends dataMixin(
-  templateActionsMixin(storeActionsMixin(actionsMixin(HTMLElement)))
+  settingsActionsMixin(
+    templateActionsMixin(storeActionsMixin(actionsMixin(HTMLElement)))
+  )
 ) {
   constructor() {
     super();
@@ -52,8 +59,9 @@ class BetterShoppingCartPanel extends dataMixin(
     this._items = [];
     this._activeListId = null;
     this._editingItemId = null;
-    // Store management state (M7/M8):
-    // "shopping" | "sections" | "layouts" | "templates" | "history".
+    // Store management state (M7/M8/M9):
+    // "shopping" | "sections" | "layouts" | "templates" | "history" |
+    // "settings".
     this._view = "shopping";
     this._editingSectionId = null;
     this._editingLayoutId = null;
@@ -62,6 +70,8 @@ class BetterShoppingCartPanel extends dataMixin(
     this._recentItems = [];
     this._editingTemplateId = null;
     this._templateRowSeq = 0;
+    // Settings state (M9): notify services from the service registry.
+    this._notifyServices = [];
     this._refreshing = false;
     this._refreshQueued = false;
     this._unsubscribe = null;
@@ -187,13 +197,17 @@ class BetterShoppingCartPanel extends dataMixin(
         layouts: "Layouts",
         templates: "Templates",
         history: "History",
+        settings: "Settings",
       }[viewName];
     this._renderContent();
-    // Templates and history are fetched on entry (small, rarely needed).
+    // Templates, history and the notify service list are fetched on entry
+    // (small, rarely needed).
     if (viewName === "templates") {
       this._loadTemplates().catch((err) => this._showError(err));
     } else if (viewName === "history") {
       this._loadHistory().catch((err) => this._showError(err));
+    } else if (viewName === "settings") {
+      this._loadNotifyServices().catch((err) => this._showError(err));
     }
   }
 
@@ -215,6 +229,9 @@ class BetterShoppingCartPanel extends dataMixin(
     }
     if (this._view === "templates" || this._view === "history") {
       return this._renderTemplateContent();
+    }
+    if (this._view === "settings") {
+      return this._renderSettingsContent();
     }
     if (this._view !== "shopping") {
       return this._renderStoreContent();
@@ -281,7 +298,11 @@ class BetterShoppingCartPanel extends dataMixin(
         return;
       }
       if (this._view !== "shopping") {
-        safe(this._onStoreChange(el));
+        safe(
+          this._view === "settings"
+            ? this._onSettingsChange(el)
+            : this._onStoreChange(el)
+        );
         return;
       }
       if (el.dataset.action === "select-list") {

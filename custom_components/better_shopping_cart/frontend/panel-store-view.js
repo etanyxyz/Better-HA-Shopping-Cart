@@ -17,7 +17,7 @@ function iconBtn(action, icon, label, disabled = false, danger = false) {
   </button>`;
 }
 
-/** Tab bar switching between the four store management screens. */
+/** Tab bar switching between the store management screens (M9: + settings). */
 export function storeTabs(active) {
   const tab = (id, icon, label) => `
     <button type="button" class="tab${active === id ? " active" : ""}" data-action="store-tab" data-tab="${id}" aria-label="${label}">
@@ -30,6 +30,7 @@ export function storeTabs(active) {
       ${tab("layouts", "mdi:format-list-box", "Layouts")}
       ${tab("templates", "mdi:content-copy", "Templates")}
       ${tab("history", "mdi:history", "History")}
+      ${tab("settings", "mdi:cog", "Settings")}
     </div>
   `;
 }

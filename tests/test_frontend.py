@@ -50,13 +50,15 @@ async def test_static_assets_served(hass_client, bsc_entry):
 
 
 async def test_store_modules_served(hass_client, bsc_entry):
-    """The M7/M8 store-management modules are served under /bsc/."""
+    """The M7/M8/M9 store-management modules are served under /bsc/."""
     client = await hass_client()
     for name in (
         "panel-store-view.js",
         "panel-store-actions.js",
         "panel-template-view.js",
         "panel-template-actions.js",
+        "panel-settings-view.js",
+        "panel-settings-actions.js",
         "panel-drag.js",
     ):
         resp = await client.get(f"/bsc/{name}")
