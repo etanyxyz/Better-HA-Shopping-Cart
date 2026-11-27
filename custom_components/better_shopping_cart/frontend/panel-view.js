@@ -41,17 +41,24 @@ export function errorState(message) {
 }
 
 /**
- * The shopping view: list bar (list selector, layout selector, progress,
- * hide-checked toggle), add row and the section blocks.
+ * The shopping view: list bar (list selector, list actions, layout
+ * selector, progress, hide-checked toggle), add row and the section blocks.
+ *
+ * NOTES: Shopping Cart View - the layout's sections always render, empty
+ * ones included (the toggle hides only items, not sections), and item rows
+ * carry `data-drag-row`/`data-drag-id` plus a `[data-drag-handle]` grip so
+ * items can be dragged between sections.
  *
  * ctx: { lists, activeListId, activeLayoutId, defaultLayoutId,
  *        layouts: [{ id, name, isDefault }],
  *        hideChecked, checked, total,
  *        sections: [{ section, visible, remaining }],
- *        viewSections, editingItemId }
+ *        viewSections, editingItemId,
+ *        listMenuOpen, confirm, checkedCount }
  */
 export function shoppingView(ctx) {
   const { lists, activeListId, hideChecked, checked, total, sections } = ctx;
+  const activeList = lists.find((l) => l.id === activeListId);
   const layoutOptions = [
     option(
       "",
@@ -67,6 +74,9 @@ export function shoppingView(ctx) {
       <select class="list-select" data-action="select-list" aria-label="Active shopping list">
         ${lists.map((l) => option(l.id, activeListId, l.name)).join("")}
       </select>
+      <button type="button" class="icon-btn" data-action="list-menu" aria-label="List actions" title="List actions">
+        <ha-icon icon="mdi:dots-vertical"></ha-icon>
+      </button>
       <button type="button" class="icon-btn" data-action="new-list" aria-label="Create new list" title="Create new list">
         <ha-icon icon="mdi:plus"></ha-icon>
       </button>
@@ -79,6 +89,14 @@ export function shoppingView(ctx) {
         ${layoutOptions}
       </select>
     </div>
+  `;
+  if (ctx.listMenuOpen && activeList) {
+    html += listMenuHtml({ name: activeList.name, checked: ctx.checkedCount });
+  }
+  if (ctx.confirm && activeList) {
+    html += confirmDeleteListHtml({ name: activeList.name });
+  }
+  html += `
     <div class="addrow">
       <input type="text" class="add-input" placeholder="Add an item" aria-label="Add an item" autocomplete="off">
       <button type="button" class="icon-btn" data-action="add-item" aria-label="Add item" title="Add item">
@@ -89,7 +107,7 @@ export function shoppingView(ctx) {
   `;
   for (const { section, visible, remaining } of sections) {
     html += `
-      <section class="sblock">
+      <section class="sblock" data-section-id="${section.id}">
         <h2 class="shead">
           <ha-icon icon="${esc(section.icon)}"></ha-icon>
           <span>${esc(section.name)}</span>
@@ -100,13 +118,55 @@ export function shoppingView(ctx) {
     `;
   }
   html += "</div>";
-  if (!sections.length) {
+  if (!sections.length || total === 0) {
     html += `<p class="hint">No items yet - add your first one above.</p>`;
   }
   return html;
 }
 
-/** One item row, or the inline edit form while `editingItemId` matches. */
+/**
+ * List actions menu (NOTES: Shopping Cart View): delete the list, clear
+ * all its items, or clear only the checked ones.
+ *
+ * ctx: { name, checked (number of checked items) }
+ */
+export function listMenuHtml(ctx) {
+  const n = esc(ctx.name);
+  return `
+    <div class="list-menu">
+      <button type="button" class="menu-item" data-action="clear-list">Clear ${n}</button>
+      <button type="button" class="menu-item" data-action="clear-completed"${
+        ctx.checked ? "" : " disabled"
+      }>Clear completed items${ctx.checked ? ` (${ctx.checked})` : ""}</button>
+      <button type="button" class="menu-item danger" data-action="delete-list">Delete ${n}</button>
+    </div>
+  `;
+}
+
+/**
+ * Confirmation card for deleting the active list (the only destructive
+ * action that asks first; the clear actions run immediately).
+ *
+ * ctx: { name }
+ */
+export function confirmDeleteListHtml(ctx) {
+  return `
+    <div class="confirm">
+      <p>Delete <strong>${esc(ctx.name)}</strong>? Its items will be removed too.</p>
+      <div class="confirm-actions">
+        <button type="button" class="text-btn" data-action="confirm-cancel">Cancel</button>
+        <button type="button" class="primary-btn danger" data-action="confirm-delete">Delete</button>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * One item row, or the inline edit form while `editingItemId` matches.
+ * NOTES: Shopping Cart View - rows carry `data-drag-row`/`data-drag-id`
+ * plus a `[data-drag-handle]` grip so they can be dragged between
+ * sections; the up/down buttons remain as the keyboard alternative.
+ */
 export function itemHtml(item, ctx) {
   if (item.id === ctx.editingItemId) {
     const sectionOptions = ctx.viewSections
@@ -125,7 +185,7 @@ export function itemHtml(item, ctx) {
       <ha-icon icon="${icon}"></ha-icon>
     </button>`;
   return `
-    <div class="item${item.checked ? " checked" : ""}" data-item-id="${item.id}">
+    <div class="item${item.checked ? " checked" : ""}" data-item-id="${item.id}" data-drag-row data-drag-id="${item.id}">
       <label class="check">
         <input type="checkbox" data-action="check-item"${item.checked ? " checked" : ""} aria-label="Mark ${n} as done">
         <ha-icon icon="mdi:check"></ha-icon>
@@ -135,6 +195,9 @@ export function itemHtml(item, ctx) {
         ${note}
       </div>
       <div class="item-actions">
+        <button type="button" class="icon-btn drag-handle" data-drag-handle aria-label="Drag to reposition ${n}" title="Drag to reposition">
+          <ha-icon icon="mdi:dots-vertical"></ha-icon>
+        </button>
         ${btn("move-up", "mdi:arrow-up", `Move ${n} up`)}
         ${btn("move-down", "mdi:arrow-down", `Move ${n} down`)}
         ${btn("edit-item", "mdi:pencil-outline", `Edit ${n}`)}

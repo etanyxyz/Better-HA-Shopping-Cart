@@ -5,7 +5,7 @@ list custom integration with store sections, named layouts per supermarket,
 tick boxes, list templates, and native Home Assistant to-do entities (so it
 works with dashboards, the built-in to-do card, and Assist voice).
 
-**v0.1.0** — all v1 features shipped.
+**v1.0** — all v1 features shipped.
 
 | Shopping view | Store management → Settings |
 | --- | --- |
@@ -124,11 +124,6 @@ case-insensitive), useful in automations, scripts and voice commands:
   time.
 - **To-do entity not appearing** — each list has a `todo.*` entity; check
   **Settings → Devices & Services → Entities**.
-
-## Repository notes
-
-`PLAN.md`, `AGENTS.md` and `.env` are local development files and are
-git-ignored by design.
 
 ## License
 

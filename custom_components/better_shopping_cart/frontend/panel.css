@@ -215,6 +215,70 @@
   border-radius: 50%;
 }
 
+/* ---- list actions menu + delete confirmation (NOTES: Shopping Cart View) ---- */
+
+.list-menu,
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding: 6px;
+  border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+  border-radius: 12px;
+  background: var(--card-background-color, #ffffff);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.menu-item {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-item:hover {
+  background: var(--hover-color, rgba(0, 0, 0, 0.06));
+}
+
+.menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.menu-item:disabled:hover {
+  background: transparent;
+}
+
+.menu-item.danger {
+  color: var(--error-color, #b71c1c);
+}
+
+.confirm {
+  gap: 8px;
+}
+
+.confirm p {
+  margin: 4px 6px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.primary-btn.danger {
+  background: var(--error-color, #b71c1c);
+}
+
 /* ---- add row ---------------------------------------------------------- */
 
 .addrow {
@@ -298,6 +362,12 @@
   flex-direction: column;
 }
 
+/* Empty sections render as headers only (NOTES: Shopping Cart View); the
+   min-height keeps a visible drop target for dragging items in. */
+.sblock .items:empty {
+  min-height: 40px;
+}
+
 .item {
   display: flex;
   align-items: center;
@@ -335,9 +405,12 @@
   cursor: pointer;
 }
 
+/* The MDI check canvas is 24x24; the icon box must be 24px (not 18px,
+   where the SVG overflows toward the bottom-right) so the tick sits
+   centred in the circle. (NOTES: Shopping Cart View) */
 .check ha-icon {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   opacity: 0;
   pointer-events: none;
 }
@@ -358,7 +431,8 @@
 
 .check input:focus-visible + ha-icon {
   outline: 2px solid var(--primary-color, #03a9f4);
-  outline-offset: 14px;
+  /* 11px keeps the ring at its old 46px size with the 24px icon box. */
+  outline-offset: 11px;
   border-radius: 50%;
 }
 
@@ -408,20 +482,30 @@
   text-decoration: line-through;
 }
 
+.item.dragging {
+  position: relative;
+  z-index: 1;
+  background: var(--card-background-color, #ffffff);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
 .item-actions {
   display: flex;
   flex: 0 0 auto;
   gap: 2px;
 }
 
+/* Compact row: the drag handle (NOTES: Shopping Cart View) joins the
+   up/down/edit/delete buttons, so the cluster shrinks from 44px to 32px
+   per button to leave the item name room. */
 .item-actions .icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
 }
 
 .item-actions .icon-btn ha-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 /* ---- inline item edit form --------------------------------------------- */

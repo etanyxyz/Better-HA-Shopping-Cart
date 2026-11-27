@@ -434,6 +434,40 @@ class TestLists:
         result = await ws_call(bsc_ws, "lists/complete", list_id=shopping_list["id"])
         assert result["result"]["list"]["completed_at"] is not None
 
+    async def test_clear_list(self, bsc_ws):
+        shopping_list = await create_list(bsc_ws)
+        await add_item(bsc_ws, shopping_list["id"], name="Chips")
+        await add_item(bsc_ws, shopping_list["id"], name="Peas")
+        result = await ws_call(bsc_ws, "lists/clear", list_id=shopping_list["id"])
+        assert result["success"] is True
+        assert result["result"] == {}
+        items = await ws_call(bsc_ws, "items/list", list_id=shopping_list["id"])
+        assert items["result"]["items"] == []
+
+    async def test_clear_list_unknown_id(self, bsc_ws):
+        result = await ws_call(bsc_ws, "lists/clear", list_id="does-not-exist")
+        assert result["success"] is False
+        assert result["error"]["code"] == "home_assistant_error"
+
+    async def test_clear_completed(self, bsc_ws):
+        shopping_list = await create_list(bsc_ws)
+        await add_item(bsc_ws, shopping_list["id"], name="Chips")
+        done = await add_item(bsc_ws, shopping_list["id"], name="Peas")
+        await ws_call(
+            bsc_ws,
+            "items/check",
+            list_id=shopping_list["id"],
+            item_id=done["id"],
+            checked=True,
+        )
+        result = await ws_call(
+            bsc_ws, "lists/clear_completed", list_id=shopping_list["id"]
+        )
+        assert result["success"] is True
+        assert result["result"] == {}
+        items = await ws_call(bsc_ws, "items/list", list_id=shopping_list["id"])
+        assert [i["name"] for i in items["result"]["items"]] == ["Chips"]
+
 
 class TestItems:
     async def test_list_items_empty(self, bsc_ws):

@@ -133,6 +133,54 @@ async def websocket_lists_complete(
     connection.send_result(msg["id"], {"list": shopping_list.to_dict()})
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{_TYPE}lists/clear",
+        vol.Required("list_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+async def websocket_lists_clear(
+    hass: HomeAssistant,
+    connection: websocket_api.connection.ActiveConnection,
+    msg: Msg,
+) -> None:
+    """Handle ``better_shopping_cart/lists/clear`` (NOTES: Shopping Cart View).
+
+    Removes every item from the list in one commit instead of one
+    ``items/delete`` round trip per item.
+    """
+    store = get_store(hass)
+    try:
+        store.clear_list(msg["list_id"])
+    except ValueError as err:
+        raise as_error(err) from err
+    await commit(hass, store)
+    connection.send_result(msg["id"], {})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{_TYPE}lists/clear_completed",
+        vol.Required("list_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+async def websocket_lists_clear_completed(
+    hass: HomeAssistant,
+    connection: websocket_api.connection.ActiveConnection,
+    msg: Msg,
+) -> None:
+    """Handle ``better_shopping_cart/lists/clear_completed``."""
+    store = get_store(hass)
+    try:
+        store.clear_completed(msg["list_id"])
+    except ValueError as err:
+        raise as_error(err) from err
+    await commit(hass, store)
+    connection.send_result(msg["id"], {})
+
+
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
@@ -143,4 +191,6 @@ COMMANDS = (
     websocket_lists_update,
     websocket_lists_delete,
     websocket_lists_complete,
+    websocket_lists_clear,
+    websocket_lists_clear_completed,
 )

@@ -211,8 +211,15 @@ export const storeActionsMixin = (base) =>
       }
     }
 
-    /** Drag reorder committed by the pointer drag helper (layout editor). */
+    /**
+     * Drag reorder committed by the pointer drag helper: the layout
+     * editor's section rows (M7) and the shopping view's item rows
+     * (NOTES: Shopping Cart View, committed by `_commitItemDrag`).
+     */
     async _onDragReorder(ids) {
+      if (this._view === "shopping") {
+        return this._commitItemDrag(ids);
+      }
       if (this._view === "layouts" && this._editingLayoutId) {
         const layout = this._layouts.find((l) => l.id === this._editingLayoutId);
         if (!layout) {

@@ -4,6 +4,8 @@
  * The mutations behind the view: list selection and creation, add, inline
  * edit (cleared unit/note submitted as empty strings, since the frozen §5
  * contract maps null to "leave unchanged"), delete, and up/down reordering.
+ * NOTES: Shopping Cart View adds the list actions (clear list, clear
+ * completed, delete with confirmation) and the cross-section drag commit.
  * Expects the data mixin's methods (`_ws`, `_mutate`, `_refresh`,
  * `_groupItems`, `_viewSections`) and the host's `_renderContent()`.
  */
@@ -58,6 +60,32 @@ export const actionsMixin = (base) =>
             el.closest("[data-item-id]").dataset.itemId,
             action === "move-up" ? -1 : 1
           );
+          break;
+        // NOTES: Shopping Cart View - list actions menu.
+        case "list-menu":
+          this._listMenuOpen = !this._listMenuOpen;
+          this._renderContent();
+          break;
+        case "clear-list":
+          this._listMenuOpen = false;
+          await this._mutate("lists/clear", {});
+          break;
+        case "clear-completed":
+          this._listMenuOpen = false;
+          await this._mutate("lists/clear_completed", {});
+          break;
+        case "delete-list":
+          this._listMenuOpen = false;
+          this._confirmDeleteList = true;
+          this._renderContent();
+          break;
+        case "confirm-cancel":
+          this._confirmDeleteList = false;
+          this._renderContent();
+          break;
+        case "confirm-delete":
+          this._confirmDeleteList = false;
+          await this._mutate("lists/delete", {});
           break;
       }
     }
@@ -190,5 +218,40 @@ export const actionsMixin = (base) =>
       await this._mutate("items/reorder", {
         ordered_ids: displayOrder.map((i) => i.id),
       });
+    }
+
+    /**
+     * Commit a pointer drag of item rows (NOTES: Shopping Cart View).
+     * `ids` is the new DOM order of all visible rows, across sections.
+     * Rows that landed in a different section are first moved there via
+     * `items/update` (which also teaches the learned category map, the
+     * frozen §5 behaviour for moving an item), then the complete new
+     * display order goes to `items/reorder`. Rows not in the DOM (checked
+     * while hidden, the item being edited) keep their stored order at the
+     * end of the submitted list, as `_moveItem` does.
+     */
+    async _commitItemDrag(ids) {
+      const content = this._root.querySelector(".content");
+      if (!content || !this._activeListId) {
+        return;
+      }
+      const byId = new Map(this._items.map((i) => [i.id, i]));
+      const moved = [];
+      for (const row of content.querySelectorAll("[data-drag-row]")) {
+        const item = byId.get(row.dataset.dragId);
+        const sectionId = row.closest(".sblock")?.dataset.sectionId;
+        if (item && sectionId && item.section_id !== sectionId) {
+          moved.push({ id: item.id, sectionId });
+        }
+      }
+      for (const { id, sectionId } of moved) {
+        await this._mutate("items/update", { item_id: id, section_id: sectionId });
+      }
+      const seen = new Set(ids);
+      const hidden = [...this._items]
+        .sort((a, b) => a.order - b.order)
+        .filter((i) => !seen.has(i.id))
+        .map((i) => i.id);
+      await this._mutate("items/reorder", { ordered_ids: [...ids, ...hidden] });
     }
   };

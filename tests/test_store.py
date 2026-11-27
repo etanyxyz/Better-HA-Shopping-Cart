@@ -321,6 +321,22 @@ async def test_create_list_requires_valid_layout(store):
         store.create_list("Weekly", layout_id="nope")
 
 
+async def test_clear_list_and_completed(store):
+    await store.async_load()
+    lst = store.create_list("Weekly")
+    store.add_item(lst.id, "Chips")
+    done = store.add_item(lst.id, "Peas")
+    store.check_item(lst.id, done.id, True)
+
+    store.clear_completed(lst.id)
+    assert [i.name for i in store.shopping_list(lst.id).items] == ["Chips"]
+
+    store.clear_list(lst.id)
+    assert store.shopping_list(lst.id).items == []
+    with pytest.raises(ValueError):
+        store.clear_list("nope")
+
+
 # ----------------------------------------------------------------------
 # Items
 # ----------------------------------------------------------------------

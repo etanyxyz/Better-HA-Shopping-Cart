@@ -214,6 +214,16 @@ class Crud:
         entry = self._find("lists", list_id)
         self.data["lists"].remove(entry)
 
+    def clear_list(self, list_id: str) -> None:
+        """Remove every item from a shopping list (NOTES: Shopping Cart View)."""
+        entry = self._find("lists", list_id)
+        entry["items"] = []
+
+    def clear_completed(self, list_id: str) -> None:
+        """Remove the checked items from a shopping list."""
+        entry = self._find("lists", list_id)
+        entry["items"] = [item for item in entry["items"] if not item["checked"]]
+
     def complete_list(self, list_id: str) -> ShoppingList:
         """Mark a list as completed (used by history/repeat_last)."""
         entry = self._find("lists", list_id)

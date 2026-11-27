@@ -59,6 +59,9 @@ class BetterShoppingCartPanel extends dataMixin(
     this._items = [];
     this._activeListId = null;
     this._editingItemId = null;
+    // NOTES: Shopping Cart View - list actions menu + delete confirmation.
+    this._listMenuOpen = false;
+    this._confirmDeleteList = false;
     // Store management state (M7/M8/M9):
     // "shopping" | "sections" | "layouts" | "templates" | "history" |
     // "settings".
@@ -186,6 +189,8 @@ class BetterShoppingCartPanel extends dataMixin(
   /** Switch between the shopping view and the store management screens. */
   _gotoView(viewName) {
     this._view = viewName;
+    this._listMenuOpen = false;
+    this._confirmDeleteList = false;
     this._editingSectionId = null;
     this._editingLayoutId = null;
     this._layoutAdding = false;
@@ -245,14 +250,15 @@ class BetterShoppingCartPanel extends dataMixin(
     const hideChecked = Boolean(this._settings.hide_checked);
     const groups = this._groupItems();
     const viewSections = this._viewSections();
-    const sections = viewSections
-      .map((section) => {
-        const items = groups.get(section.id) || [];
-        const visible = hideChecked ? items.filter((i) => !i.checked) : items;
-        return { section, visible, remaining: items.length - items.filter((i) => i.checked).length };
-      })
-      .filter((g) => g.visible.length);
+    // NOTES: Shopping Cart View - the layout's sections always render,
+    // empty ones included; hide-checked hides items, not sections.
+    const sections = viewSections.map((section) => {
+      const items = groups.get(section.id) || [];
+      const visible = hideChecked ? items.filter((i) => !i.checked) : items;
+      return { section, visible, remaining: items.length - items.filter((i) => i.checked).length };
+    });
     const activeList = this._lists.find((l) => l.id === this._activeListId);
+    const checkedCount = this._items.filter((i) => i.checked).length;
     content.innerHTML = view.shoppingView({
       lists: this._lists,
       activeListId: this._activeListId,
@@ -260,11 +266,14 @@ class BetterShoppingCartPanel extends dataMixin(
       defaultLayoutId: this._settings.default_layout_id,
       layouts: this._layouts.map((l) => ({ id: l.id, name: l.name, isDefault: l.id === this._settings.default_layout_id })),
       hideChecked,
-      checked: this._items.filter((i) => i.checked).length,
+      checked: checkedCount,
       total: this._items.length,
       sections,
       viewSections,
       editingItemId: this._editingItemId,
+      listMenuOpen: this._listMenuOpen,
+      confirm: this._confirmDeleteList,
+      checkedCount,
     });
     if (this._editingItemId) {
       const name = content.querySelector(`[data-item-id="${this._editingItemId}"] .edit-name`);
@@ -345,17 +354,65 @@ class BetterShoppingCartPanel extends dataMixin(
       } else if (event.key === "Enter" && cls.contains("item-body")) {
         event.preventDefault();
         t.click();
-      } else if (
-        event.key === "Escape" &&
-        t.closest(".item-edit, .new-list-form")
-      ) {
-        this._cancelEdit();
+      } else if (event.key === "Escape") {
+        if (this._confirmDeleteList) {
+          this._confirmDeleteList = false;
+          this._renderContent();
+        } else if (this._listMenuOpen) {
+          this._listMenuOpen = false;
+          this._renderContent();
+        } else if (t.closest(".item-edit, .new-list-form")) {
+          this._cancelEdit();
+        }
       }
     });
-    // Pointer drag reorder for the store screens' row lists (M7).
-    attachDragReorder(content, "[data-drag-row]", (ids) => {
-      safe(this._onDragReorder(ids));
+    // Re-rendering the content moves focus out of the panel, so the
+    // content-level handler above never sees the key. Catch Escape at the
+    // document level too: it only acts while the menu or the confirm
+    // dialog is open, so it never interferes with other views.
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (this._confirmDeleteList) {
+        this._confirmDeleteList = false;
+        this._renderContent();
+      } else if (this._listMenuOpen) {
+        this._listMenuOpen = false;
+        this._renderContent();
+      }
     });
+    // Close the list actions menu on any click outside it — blank areas,
+    // section headers, appbar buttons — without a full re-render, so any
+    // click action still lands on the live DOM. The ⋮ toggle button is
+    // exempt so its own handler can close the menu.
+    this._root.addEventListener("click", (event) => {
+      if (this._view !== "shopping" || !this._listMenuOpen) {
+        return;
+      }
+      const menu = this._root.querySelector(".list-menu");
+      const inMenu = menu && menu.contains(event.target);
+      const el = event.target.closest("[data-action]");
+      if (!inMenu && el?.dataset.action !== "list-menu") {
+        this._listMenuOpen = false;
+        menu?.remove();
+      }
+    });
+    // Pointer drag reorder: the layout editor's row list (M7) and, since
+    // NOTES: Shopping Cart View, the shopping view's item rows. The
+    // group selector scopes drops to per-section `.items` wrappers (empty
+    // ones included); the key includes the landing section so a
+    // cross-section move that keeps the global id order still commits.
+    attachDragReorder(
+      content,
+      "[data-drag-row]",
+      (ids) => safe(this._onDragReorder(ids)),
+      ".sblock .items",
+      (row) =>
+        row.dataset.dragId +
+        "@" +
+        (row.closest(".sblock")?.dataset.sectionId || "-")
+    );
   }
 }
 
