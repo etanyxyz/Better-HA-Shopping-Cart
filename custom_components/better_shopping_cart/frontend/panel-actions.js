@@ -3,7 +3,7 @@
  *
  * The mutations behind the view: list selection and creation, add, inline
  * edit (cleared unit/note submitted as empty strings, since the frozen §5
- * contract maps null to "leave unchanged"), delete, and up/down reordering.
+ * contract maps null to "leave unchanged"), delete, and drag reordering.
  * NOTES: Shopping Cart View adds the list actions (clear list, clear
  * completed, delete with confirmation) and the cross-section drag commit.
  * Expects the data mixin's methods (`_ws`, `_mutate`, `_refresh`,
@@ -53,13 +53,6 @@ export const actionsMixin = (base) =>
           await this._mutate("items/delete", {
             item_id: el.closest("[data-item-id]").dataset.itemId,
           });
-          break;
-        case "move-up":
-        case "move-down":
-          await this._moveItem(
-            el.closest("[data-item-id]").dataset.itemId,
-            action === "move-up" ? -1 : 1
-          );
           break;
         // NOTES: Shopping Cart View - list actions menu.
         case "list-menu":
@@ -186,41 +179,6 @@ export const actionsMixin = (base) =>
     }
 
     /**
-     * Move an item up/down within its section, then send the full display
-     * order (all items, all sections) to `items/reorder`.
-     */
-    async _moveItem(itemId, delta) {
-      const groups = this._groupItems();
-      let displayOrder = [];
-      for (const section of this._viewSections()) {
-        displayOrder = displayOrder.concat(groups.get(section.id) || []);
-      }
-      // Items in hidden sections are not reachable from the view; keep their
-      // relative order at the end of the submitted list.
-      const visibleIds = new Set(displayOrder.map((i) => i.id));
-      for (const item of [...this._items].sort((a, b) => a.order - b.order)) {
-        if (!visibleIds.has(item.id)) {
-          displayOrder.push(item);
-        }
-      }
-      const from = displayOrder.findIndex((i) => i.id === itemId);
-      const to = from + delta;
-      if (from < 0 || to < 0 || to >= displayOrder.length) {
-        return;
-      }
-      if (displayOrder[from].section_id !== displayOrder[to].section_id) {
-        return;
-      }
-      [displayOrder[from], displayOrder[to]] = [
-        displayOrder[to],
-        displayOrder[from],
-      ];
-      await this._mutate("items/reorder", {
-        ordered_ids: displayOrder.map((i) => i.id),
-      });
-    }
-
-    /**
      * Commit a pointer drag of item rows (NOTES: Shopping Cart View).
      * `ids` is the new DOM order of all visible rows, across sections.
      * Rows that landed in a different section are first moved there via
@@ -228,7 +186,7 @@ export const actionsMixin = (base) =>
      * frozen §5 behaviour for moving an item), then the complete new
      * display order goes to `items/reorder`. Rows not in the DOM (checked
      * while hidden, the item being edited) keep their stored order at the
-     * end of the submitted list, as `_moveItem` does.
+     * end of the submitted list.
      */
     async _commitItemDrag(ids) {
       const content = this._root.querySelector(".content");

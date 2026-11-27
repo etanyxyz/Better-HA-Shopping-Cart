@@ -1,7 +1,7 @@
 {
   "domain": "better_shopping_cart",
   "name": "Better Shopping Cart",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "documentation": "https://github.com/etanyxyz/Better-HA-Shopping-Cart",
   "issue_tracker": "https://github.com/etanyxyz/Better-HA-Shopping-Cart/issues",
   "codeowners": ["@etanyxyz"],

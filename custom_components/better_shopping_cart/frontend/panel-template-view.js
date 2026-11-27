@@ -63,8 +63,8 @@ export function templatesScreen(ctx) {
 
 /**
  * One editable item row of the template editor. Rows are local DOM state;
- * the whole list is committed when the editor is saved, so up/down buttons
- * stay enabled and no-op at the edges instead of tracking indices.
+ * the whole list is committed when the editor is saved. Rows are reordered
+ * by pointer drag.
  *
  * item: null for a fresh row, else { name, section_id, quantity }.
  * sections: store sections in store order (each { id, name }).
@@ -93,8 +93,6 @@ export function templateItemRow(item, sections, dragId) {
       <div class="template-item-sub">
         <select class="template-item-section" aria-label="Section">${options}</select>
         <div class="row-actions">
-          ${iconBtn("template-item-up", "mdi:arrow-up", "Move item up")}
-          ${iconBtn("template-item-down", "mdi:arrow-down", "Move item down")}
           ${iconBtn("template-item-delete", "mdi:delete-outline", "Remove item", false, true)}
         </div>
       </div>

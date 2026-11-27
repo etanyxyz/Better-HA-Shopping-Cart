@@ -165,7 +165,7 @@ export function confirmDeleteListHtml(ctx) {
  * One item row, or the inline edit form while `editingItemId` matches.
  * NOTES: Shopping Cart View - rows carry `data-drag-row`/`data-drag-id`
  * plus a `[data-drag-handle]` grip so they can be dragged between
- * sections; the up/down buttons remain as the keyboard alternative.
+ * sections.
  */
 export function itemHtml(item, ctx) {
   if (item.id === ctx.editingItemId) {
@@ -198,8 +198,6 @@ export function itemHtml(item, ctx) {
         <button type="button" class="icon-btn drag-handle" data-drag-handle aria-label="Drag to reposition ${n}" title="Drag to reposition">
           <ha-icon icon="mdi:dots-vertical"></ha-icon>
         </button>
-        ${btn("move-up", "mdi:arrow-up", `Move ${n} up`)}
-        ${btn("move-down", "mdi:arrow-down", `Move ${n} down`)}
         ${btn("edit-item", "mdi:pencil-outline", `Edit ${n}`)}
         ${btn("delete-item", "mdi:delete-outline", `Delete ${n}`, true)}
       </div>

@@ -79,10 +79,6 @@ export const templateActionsMixin = (base) =>
         case "template-item-delete":
           this._removeTemplateItemRow(el);
           break;
-        case "template-item-up":
-        case "template-item-down":
-          this._moveTemplateItemRow(el, action === "template-item-up" ? -1 : 1);
-          break;
         case "template-apply":
           await this._applyTemplate(
             el.closest("[data-template-id]").dataset.templateId
@@ -269,21 +265,5 @@ export const templateActionsMixin = (base) =>
       if (row) {
         row.remove();
       }
-    }
-
-    _moveTemplateItemRow(el, delta) {
-      const row = el.closest(".template-item-row");
-      const rows = Array.from(
-        this._root.querySelectorAll(".template-item-row")
-      );
-      const index = rows.indexOf(row);
-      const target = index + delta;
-      if (index < 0 || target < 0 || target >= rows.length) {
-        return;
-      }
-      const list = row.parentElement;
-      const sibling =
-        delta < 0 ? rows[target] : rows[target].nextElementSibling;
-      list.insertBefore(row, sibling);
     }
   };

@@ -144,13 +144,6 @@ export const storeActionsMixin = (base) =>
           });
           await this._refresh();
           break;
-        case "layout-section-up":
-        case "layout-section-down":
-          await this._reorderLayoutSection(
-            el,
-            action === "layout-section-up" ? -1 : 1
-          );
-          break;
         case "layout-add-sections":
           this._layoutAdding = !this._layoutAdding;
           this._renderContent();
@@ -303,20 +296,4 @@ export const storeActionsMixin = (base) =>
       await this._refresh();
     }
 
-    async _reorderLayoutSection(el, delta) {
-      const container = el.closest("[data-layout-id]");
-      if (!container) {
-        return;
-      }
-      const sectionId = el.closest("[data-section-id]").dataset.sectionId;
-      await this._updateLayoutOrder(container.dataset.layoutId, (ids) => {
-        const index = ids.indexOf(sectionId);
-        const target = index + delta;
-        if (index < 0 || target < 0 || target >= ids.length) {
-          return ids;
-        }
-        [ids[index], ids[target]] = [ids[target], ids[index]];
-        return ids;
-      });
-    }
   };

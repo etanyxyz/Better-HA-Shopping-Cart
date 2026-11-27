@@ -170,7 +170,7 @@ export function layoutsScreen(ctx) {
 
 /**
  * Layout editor (NOTES: Layouts tab): rename, reorder the sections
- * (up/down + drag) and add or remove sections from the layout. The
+ * (drag) and add or remove sections from the layout. The
  * sections listed here are exactly the sections the shopping view shows
  * for this layout, in this order.
  *
@@ -191,8 +191,6 @@ export function layoutEditor(layout, ctx) {
           <ha-icon icon="${esc(section.icon)}" class="row-icon"></ha-icon>
           <span class="row-name">${esc(section.name)}</span>
           <div class="row-actions">
-            ${iconBtn("layout-section-up", "mdi:arrow-up", `Move ${esc(section.name)} up`, index === 0)}
-            ${iconBtn("layout-section-down", "mdi:arrow-down", `Move ${esc(section.name)} down`, index === ctx.order.length - 1)}
             ${iconBtn("layout-section-delete", "mdi:delete-outline", `Remove ${esc(section.name)} from this layout`, false, true)}
           </div>
         </div>`
