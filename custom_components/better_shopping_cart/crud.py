@@ -1,4 +1,4 @@
-"""CRUD helpers for the Better Shopping Cart store (PLAN.md M1).
+"""CRUD helpers for the Smartcart store (PLAN.md M1).
 
 ``Crud`` holds the mutating operations on the frozen store shape (PLAN.md §4).
 It is mixed into ``BetterShoppingCartStore`` (see ``store.py``) and operates on

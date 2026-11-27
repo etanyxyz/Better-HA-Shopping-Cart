@@ -1,4 +1,4 @@
-"""The Better Shopping Cart integration.
+"""The Smartcart integration.
 
 A mobile-friendly supermarket shopping list for Home Assistant.
 
@@ -65,7 +65,7 @@ def _get_store(hass: HomeAssistant) -> BetterShoppingCartStore:
     """Return the loaded store or raise a service-visible error."""
     store = hass.data.get(DOMAIN)
     if store is None:
-        raise HomeAssistantError("Better Shopping Cart is not set up")
+        raise HomeAssistantError("Smartcart is not set up")
     return store
 
 
@@ -120,12 +120,12 @@ async def _async_complete_list(call: ServiceCall) -> None:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up the Better Shopping Cart integration (no YAML configuration)."""
+    """Set up the Smartcart integration (no YAML configuration)."""
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Better Shopping Cart from a config entry."""
+    """Set up Smartcart from a config entry."""
     if DOMAIN in hass.data:
         return True
 
@@ -158,7 +158,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config={},
     )
 
-    _LOGGER.debug("Better Shopping Cart set up (entry: %s)", entry.title)
+    _LOGGER.debug("Smartcart set up (entry: %s)", entry.title)
     return True
 
 

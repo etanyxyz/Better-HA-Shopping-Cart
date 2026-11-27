@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - user actions mixin (M6).
+ * Smartcart panel - user actions mixin (M6).
  *
  * The mutations behind the view: list selection and creation, add, inline
  * edit (cleared unit/note submitted as empty strings, since the frozen §5

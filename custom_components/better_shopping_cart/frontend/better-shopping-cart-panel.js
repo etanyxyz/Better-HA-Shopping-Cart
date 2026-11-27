@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - shopping view (M6) + store management (M7).
+ * Smartcart panel - shopping view (M6) + store management (M7).
  *
  * Registered as a custom panel: url /shopping-cart, module
  * bsc/better-shopping-cart-panel.js?v=<VERSION>. HA's wrapper

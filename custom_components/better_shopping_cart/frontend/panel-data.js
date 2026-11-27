@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - data layer mixin (M6).
+ * Smartcart panel - data layer mixin (M6).
  *
  * Owns the local store copy: WS calls, refresh after each mutation and the
  * live subscription to the backend update stream, plus the derived view

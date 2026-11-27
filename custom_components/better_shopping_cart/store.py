@@ -34,7 +34,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class BetterShoppingCartStore(Crud):
-    """Load, save and expose the Better Shopping Cart data."""
+    """Load, save and expose the Smartcart data."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Create the store wrapper."""

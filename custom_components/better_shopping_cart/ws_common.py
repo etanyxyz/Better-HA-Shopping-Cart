@@ -1,4 +1,4 @@
-"""Shared helpers for the Better Shopping Cart WebSocket commands (M3).
+"""Shared helpers for the Smartcart WebSocket commands (M3).
 
 The §5 commands are split across several modules (``websocket_api.py`` for
 sections/layouts, ``ws_lists.py`` for lists, ``ws_items.py`` for items,
@@ -45,7 +45,7 @@ def get_store(hass: HomeAssistant) -> BetterShoppingCartStore:
     """Return the loaded store, or a WS-visible error when not set up."""
     store = hass.data.get(DOMAIN)
     if store is None:
-        raise HomeAssistantError("Better Shopping Cart is not set up")
+        raise HomeAssistantError("Smartcart is not set up")
     return store
 
 

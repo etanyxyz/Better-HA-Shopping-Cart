@@ -1,4 +1,4 @@
-# HA services exposed by Better Shopping Cart (PLAN.md M9).
+# HA services exposed by Smartcart (PLAN.md M9).
 #
 # Lists and sections are referenced by name (case-insensitive) so the
 # services read naturally in automations, scripts and voice commands.

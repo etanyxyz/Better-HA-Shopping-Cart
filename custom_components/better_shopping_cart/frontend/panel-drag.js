@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - pointer-event drag reorder helper (M7).
+ * Smartcart panel - pointer-event drag reorder helper (M7).
  *
  * Container-level drag reorder for a vertical list of rows, touch-capable:
  * rows matching `rowSelector` are the movable elements and a

@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - pure view builders (M6).
+ * Smartcart panel - pure view builders (M6).
  *
  * No DOM access: each function returns an HTML string for the panel module
  * to inject into its shadow root. The panel imports this file with an

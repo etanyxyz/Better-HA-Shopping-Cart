@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - templates & history views (M8).
+ * Smartcart panel - templates & history views (M8).
  *
  * Pure HTML builders for the templates screen (create from scratch or from
  * the current list, edit, apply, delete), the template editor (item rows

@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - store management actions (M7).
+ * Smartcart panel - store management actions (M7).
  *
  * The mutations behind the sections and layouts screens: create, rename,
  * delete, reorder (pointer drag, layouts only), add/remove layout sections,

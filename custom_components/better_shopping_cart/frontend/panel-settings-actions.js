@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - settings screen actions (M9).
+ * Smartcart panel - settings screen actions (M9).
  *
  * The mutations behind the settings screen: default layout, hide-checked
  * default, notify service and notify-on-add. `settings/update` is global

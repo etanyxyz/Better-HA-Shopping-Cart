@@ -47,10 +47,10 @@ works with dashboards, the built-in to-do card, and Assist voice).
 ### HACS
 
 1. In Home Assistant, open **HACS → Integrations**.
-2. Search for **Better Shopping Cart** and click **Download**.
+2. Search for **Smartcart** and click **Download**.
 3. Restart Home Assistant.
 4. Add the integration: **Settings → Devices & Services → Add Integration**
-   → **Better Shopping Cart**.
+   → **Smartcart**.
 
 ### Manual
 
@@ -59,12 +59,12 @@ works with dashboards, the built-in to-do card, and Assist voice).
    Home Assistant configuration directory (next to `configuration.yaml`).
 3. Restart Home Assistant.
 4. Add the integration: **Settings → Devices & Services → Add Integration**
-   → **Better Shopping Cart**.
+   → **Smartcart**.
 
 ## Configuration
 
 Go to **Settings → Devices & Services → Add Integration** and select
-**Better Shopping Cart**. No credentials are required — optionally give the
+**Smartcart**. No credentials are required — optionally give the
 entry a name. The integration is single-entry: one store per instance.
 
 The panel appears in the sidebar as **Shopping Cart** (route

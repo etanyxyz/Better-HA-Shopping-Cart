@@ -1,4 +1,4 @@
-"""WebSocket API for Better Shopping Cart (PLAN.md §5 frozen contract).
+"""WebSocket API for Smartcart (PLAN.md §5 frozen contract).
 
 M2: ``sections/*`` and ``layouts/*`` commands (this module). M3 adds
 ``lists/*`` (``ws_lists.py``), ``items/*`` (``ws_items.py``),

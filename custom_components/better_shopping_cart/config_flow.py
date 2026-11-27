@@ -1,4 +1,4 @@
-"""Config flow for Better Shopping Cart."""
+"""Config flow for Smartcart."""
 from __future__ import annotations
 
 import voluptuous as vol
@@ -11,7 +11,7 @@ CONFIG_SCHEMA = vol.Schema({vol.Optional(CONF_NAME): str})
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Single-step confirm flow for Better Shopping Cart.
+    """Single-step confirm flow for Smartcart.
 
     The integration needs no credentials; the only option is an optional
     display name for the entry.
@@ -22,6 +22,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.ConfigFlowResult:
         """Handle the (only) step of the user-initiated flow."""
         if user_input is not None:
-            title = user_input.get(CONF_NAME) or "Better Shopping Cart"
+            title = user_input.get(CONF_NAME) or "Smartcart"
             return self.async_create_entry(title=title, data={})
         return self.async_show_form(step_id="user", data_schema=CONFIG_SCHEMA)

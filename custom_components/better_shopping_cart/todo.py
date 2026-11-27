@@ -1,4 +1,4 @@
-"""To-do platform for Better Shopping Cart (PLAN.md §7, M4).
+"""To-do platform for Smartcart (PLAN.md §7, M4).
 
 Each shopping list is exposed as a ``todo.*`` entity (unique id = list id).
 HA to-do has no grouping, so an item's section is flattened into the item's

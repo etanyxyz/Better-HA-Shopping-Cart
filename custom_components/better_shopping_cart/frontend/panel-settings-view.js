@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - settings screen (M9).
+ * Smartcart panel - settings screen (M9).
  *
  * Pure HTML builder for the settings screen, no DOM access. The host
  * injects the returned string into its shadow root. Controls carry

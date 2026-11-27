@@ -1,10 +1,10 @@
-"""Constants for the Better Shopping Cart integration."""
+"""Constants for the Smartcart integration."""
 from __future__ import annotations
 
 from typing import Any
 
 DOMAIN = "better_shopping_cart"
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 CONF_NAME = "name"
 

@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - store management views (M7).
+ * Smartcart panel - store management views (M7).
  *
  * Pure HTML builders for the sections and layouts screens, no DOM access.
  * The host injects the returned strings into its shadow root. Layout editor

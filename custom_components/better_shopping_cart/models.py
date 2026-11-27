@@ -1,4 +1,4 @@
-"""Data model for Better Shopping Cart (frozen contract, PLAN.md §4).
+"""Data model for Smartcart (frozen contract, PLAN.md §4).
 
 All IDs are ``uuid4().hex`` strings. Timestamps are ISO-8601 UTC strings.
 Every dataclass implements ``to_dict`` and ``from_dict``; round-trip

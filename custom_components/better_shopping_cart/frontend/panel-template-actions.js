@@ -1,5 +1,5 @@
 /**
- * Better Shopping Cart panel - templates & history actions (M8).
+ * Smartcart panel - templates & history actions (M8).
  *
  * The mutations behind the templates and history screens: create a template
  * from scratch or from the active list, edit its item rows (local DOM state,
