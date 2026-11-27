@@ -65,6 +65,7 @@ class BetterShoppingCartPanel extends dataMixin(
     this._view = "shopping";
     this._editingSectionId = null;
     this._editingLayoutId = null;
+    this._layoutAdding = false;
     // Templates & history state (M8).
     this._templates = [];
     this._recentItems = [];
@@ -187,6 +188,7 @@ class BetterShoppingCartPanel extends dataMixin(
     this._view = viewName;
     this._editingSectionId = null;
     this._editingLayoutId = null;
+    this._layoutAdding = false;
     this._editingTemplateId = null;
     this._root.querySelector(".back-btn").hidden = viewName === "shopping";
     this._root.querySelector(".manage-btn").hidden = viewName !== "shopping";

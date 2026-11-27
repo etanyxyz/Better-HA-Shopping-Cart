@@ -2,13 +2,16 @@
  * Better Shopping Cart panel - store management actions (M7).
  *
  * The mutations behind the sections and layouts screens: create, rename,
- * delete, reorder (pointer drag, layouts only), hidden sections, default
- * layout, and the shopping view's layout switch. The default sections are
- * immutable (NOTES: Sections tab); custom sections keep their creation
- * order.
+ * delete, reorder (pointer drag, layouts only), add/remove layout sections,
+ * default layout, and the shopping view's layout switch. The default
+ * sections are immutable (NOTES: Sections tab); custom sections keep their
+ * creation order. A layout's section_order is exactly what its shopping
+ * view shows (NOTES: Layouts tab), so adding and removing sections there
+ * changes the view directly; there are no hidden sections any more.
  * Expects the data mixin's methods (`_ws`, `_refresh`) and the host's
- * `_renderContent()`, plus the state fields `_view`, `_editingSectionId`
- * and `_editingLayoutId` initialised in the host's constructor.
+ * `_renderContent()`, plus the state fields `_view`, `_editingSectionId`,
+ * `_editingLayoutId` and `_layoutAdding` initialised in the host's
+ * constructor.
  *
  * `settings/update` is global (no `list_id`), so the default-layout toggle
  * calls `_ws` directly rather than `_mutate`.
@@ -41,13 +44,16 @@ export const storeActionsMixin = (base) =>
       content.innerHTML = layout
         ? storeView.layoutEditor(layout, {
             order: this._layoutOrder(layout),
-            hidden: layout.hidden_sections || [],
+            addable: this._addableSections(layout),
+            showAdd: this._layoutAdding,
           })
         : storeView.layoutsScreen({
             layouts: this._layouts,
             defaultId: this._settings.default_layout_id,
           });
-      this._focusStoreInput(".layout-name-input");
+      // The layout name never auto-focuses (NOTES: Layouts tab): focusing it
+      // after every change selected the text and scrolled the editor to the
+      // top.
     }
 
     /** Focus the first editable input of a freshly rendered edit form. */
@@ -58,19 +64,23 @@ export const storeActionsMixin = (base) =>
       }
     }
 
-    /** Effective section order of a layout (stored + missing sections). */
+    /**
+     * Sections of a layout in stored order - exactly the sections its
+     * shopping view shows (NOTES: Layouts tab). Stale ids are dropped.
+     */
     _layoutOrder(layout) {
       const byId = new Map(this._sections.map((s) => [s.id, s]));
-      const order = (layout.section_order || [])
+      return (layout.section_order || [])
         .map((id) => byId.get(id))
         .filter(Boolean);
-      const known = new Set(order.map((s) => s.id));
-      for (const s of [...this._sections].sort((a, b) => a.order - b.order)) {
-        if (!known.has(s.id)) {
-          order.push(s);
-        }
-      }
-      return order;
+    }
+
+    /** Sections not in the layout, in store order (the add list). */
+    _addableSections(layout) {
+      const inLayout = new Set(this._layoutOrder(layout).map((s) => s.id));
+      return [...this._sections]
+        .sort((a, b) => a.order - b.order)
+        .filter((s) => !inLayout.has(s.id));
     }
 
     async _onStoreAction(action, el) {
@@ -78,6 +88,7 @@ export const storeActionsMixin = (base) =>
         case "store-tab":
           this._editingSectionId = null;
           this._editingLayoutId = null;
+          this._layoutAdding = false;
           this._gotoView(el.dataset.tab);
           break;
         case "section-add":
@@ -106,10 +117,12 @@ export const storeActionsMixin = (base) =>
           break;
         case "layout-edit":
           this._editingLayoutId = el.closest("[data-layout-id]").dataset.layoutId;
+          this._layoutAdding = false;
           this._renderContent();
           break;
         case "layout-done":
           this._editingLayoutId = null;
+          this._layoutAdding = false;
           this._renderContent();
           break;
         case "layout-save-name":
@@ -138,36 +151,39 @@ export const storeActionsMixin = (base) =>
             action === "layout-section-up" ? -1 : 1
           );
           break;
+        case "layout-add-sections":
+          this._layoutAdding = !this._layoutAdding;
+          this._renderContent();
+          break;
+        case "layout-section-add": {
+          const layoutId = el.closest("[data-layout-id]").dataset.layoutId;
+          const sectionId = el.closest("[data-section-id]").dataset.sectionId;
+          await this._updateLayoutOrder(layoutId, (ids) => [...ids, sectionId]);
+          break;
+        }
+        case "layout-section-delete": {
+          const layoutId = el.closest("[data-layout-id]").dataset.layoutId;
+          const sectionId = el.closest("[data-section-id]").dataset.sectionId;
+          await this._updateLayoutOrder(layoutId, (ids) =>
+            ids.filter((id) => id !== sectionId)
+          );
+          break;
+        }
       }
     }
 
     async _onStoreChange(el) {
-      const action = el.dataset.action;
-      if (action === "select-layout") {
-        // Explicit null clears the list's layout (follow the store default).
-        await this._ws("lists/update", {
-          list_id: this._activeListId,
-          layout_id: el.value || null,
-        });
-        await this._refresh();
-      } else if (action === "layout-hide") {
-        const container = el.closest("[data-layout-id]");
-        if (!container) {
-          return;
-        }
-        const hidden = Array.from(
-          container.querySelectorAll('input[data-action="layout-hide"]')
-        )
-          .filter((input) => input.checked)
-          .map(
-            (input) => input.closest("[data-section-id]").dataset.sectionId
-          );
-        await this._ws("layouts/update", {
-          layout_id: container.dataset.layoutId,
-          hidden_sections: hidden,
-        });
-        await this._refresh();
+      // Only the shopping view's layout switch lands here (NOTES: Layouts tab
+      // removed the hidden-sections checkboxes).
+      if (el.dataset.action !== "select-layout") {
+        return;
       }
+      // Explicit null clears the list's layout (follow the store default).
+      await this._ws("lists/update", {
+        list_id: this._activeListId,
+        layout_id: el.value || null,
+      });
+      await this._refresh();
     }
 
     async _onStoreKeydown(event) {
@@ -203,18 +219,29 @@ export const storeActionsMixin = (base) =>
           return;
         }
         const known = new Set(this._sections.map((s) => s.id));
-        const order = ids.filter((id) => known.has(id));
-        for (const s of this._layoutOrder(layout)) {
-          if (!order.includes(s.id)) {
-            order.push(s.id);
-          }
-        }
         await this._ws("layouts/update", {
           layout_id: layout.id,
-          section_order: order,
+          section_order: ids.filter((id) => known.has(id)),
         });
         await this._refresh();
       }
+    }
+
+    /**
+     * Save a new section_order for a layout by transforming the current one
+     * (NOTES: Layouts tab: add/remove sections).
+     */
+    async _updateLayoutOrder(layoutId, transform) {
+      const layout = this._layouts.find((l) => l.id === layoutId);
+      if (!layout) {
+        return;
+      }
+      const ids = this._layoutOrder(layout).map((s) => s.id);
+      await this._ws("layouts/update", {
+        layout_id: layoutId,
+        section_order: transform(ids),
+      });
+      await this._refresh();
     }
 
     async _saveNewSection() {
@@ -271,21 +298,18 @@ export const storeActionsMixin = (base) =>
 
     async _reorderLayoutSection(el, delta) {
       const container = el.closest("[data-layout-id]");
-      const layout = this._layouts.find((l) => l.id === container.dataset.layoutId);
-      if (!layout) {
+      if (!container) {
         return;
       }
-      const order = this._layoutOrder(layout).map((s) => s.id);
-      const index = order.indexOf(el.closest("[data-section-id]").dataset.sectionId);
-      const target = index + delta;
-      if (index < 0 || target < 0 || target >= order.length) {
-        return;
-      }
-      [order[index], order[target]] = [order[target], order[index]];
-      await this._ws("layouts/update", {
-        layout_id: layout.id,
-        section_order: order,
+      const sectionId = el.closest("[data-section-id]").dataset.sectionId;
+      await this._updateLayoutOrder(container.dataset.layoutId, (ids) => {
+        const index = ids.indexOf(sectionId);
+        const target = index + delta;
+        if (index < 0 || target < 0 || target >= ids.length) {
+          return ids;
+        }
+        [ids[index], ids[target]] = [ids[target], ids[index]];
+        return ids;
       });
-      await this._refresh();
     }
   };

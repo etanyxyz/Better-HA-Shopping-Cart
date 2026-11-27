@@ -28,7 +28,7 @@ export function storeTabs(active) {
   return `
     <div class="tabs">
       ${tab("sections", "mdi:storefront", "Sections")}
-      ${tab("layouts", "mdi:format-list-box", "Layouts")}
+      ${tab("layouts", "mdi:format-list-bulleted", "Layouts")}
       ${tab("templates", "mdi:content-copy", "Templates")}
       ${tab("history", "mdi:history", "History")}
       ${tab("settings", "mdi:cog", "Settings")}
@@ -142,7 +142,7 @@ export function layoutsScreen(ctx) {
       const isDefault = layout.id === ctx.defaultId;
       return `
       <div class="store-row" data-layout-id="${layout.id}">
-        <ha-icon icon="mdi:format-list-box" class="row-icon"></ha-icon>
+        <ha-icon icon="mdi:format-list-bulleted" class="row-icon"></ha-icon>
         <span class="row-name">${n}${isDefault ? '<span class="badge default">Default</span>' : ""}</span>
         <div class="row-actions">
           ${iconBtn("layout-edit", "mdi:pencil-outline", `Edit ${n}`)}
@@ -155,7 +155,7 @@ export function layoutsScreen(ctx) {
     .join("");
   return `
     ${storeTabs("layouts")}
-    <p class="hint">A layout fixes a section order and which sections are hidden. The default layout applies to lists without one of their own.</p>
+    <p class="hint">A layout fixes which sections appear in the shopping view and in what order. The default layout applies to lists without one of their own.</p>
     <div class="addrow">
       <input type="text" class="add-input store-add-input" placeholder="New layout" aria-label="New layout name" autocomplete="off">
       <button type="button" class="icon-btn" data-action="layout-add" aria-label="Add layout" title="Add layout">
@@ -169,43 +169,50 @@ export function layoutsScreen(ctx) {
 }
 
 /**
- * Layout editor: rename, reorder the sections (up/down + drag) and toggle
- * which sections are hidden in the shopping view.
+ * Layout editor (NOTES: Layouts tab): rename, reorder the sections
+ * (up/down + drag) and add or remove sections from the layout. The
+ * sections listed here are exactly the sections the shopping view shows
+ * for this layout, in this order.
  *
  * layout: the layout being edited.
- * ctx: { order (sections in the layout's effective order),
- *        hidden (section ids hidden in the layout) }
+ * ctx: { order (sections in the layout's stored order),
+ *        addable (sections not in the layout, in store order),
+ *        showAdd (inline add list expanded) }
  */
 export function layoutEditor(layout, ctx) {
-  const orderRows = ctx.order
-    .map(
-      (section, index) => `
+  const orderRows = ctx.order.length
+    ? ctx.order
+        .map(
+          (section, index) => `
         <div class="store-row" data-drag-row data-drag-id="${section.id}" data-section-id="${section.id}">
           <button type="button" class="icon-btn drag-handle" data-drag-handle aria-label="Drag to reorder ${esc(section.name)}">
-            <ha-icon icon="mdi:menu-vertical"></ha-icon>
+            <ha-icon icon="mdi:dots-vertical"></ha-icon>
           </button>
           <ha-icon icon="${esc(section.icon)}" class="row-icon"></ha-icon>
           <span class="row-name">${esc(section.name)}</span>
           <div class="row-actions">
             ${iconBtn("layout-section-up", "mdi:arrow-up", `Move ${esc(section.name)} up`, index === 0)}
             ${iconBtn("layout-section-down", "mdi:arrow-down", `Move ${esc(section.name)} down`, index === ctx.order.length - 1)}
+            ${iconBtn("layout-section-delete", "mdi:delete-outline", `Remove ${esc(section.name)} from this layout`, false, true)}
           </div>
         </div>`
-    )
-    .join("");
-  const hideRows = ctx.order
-    .map(
-      (section) => `
-      <div class="store-row hide-row" data-section-id="${section.id}">
-        <ha-icon icon="${esc(section.icon)}" class="row-icon"></ha-icon>
-        <span class="row-name">${esc(section.name)}</span>
-        <label class="check" title="Hide ${esc(section.name)} in the shopping view">
-          <input type="checkbox" data-action="layout-hide"${ctx.hidden.includes(section.id) ? " checked" : ""} aria-label="Hide ${esc(section.name)}">
-          <ha-icon icon="mdi:check"></ha-icon>
-        </label>
-      </div>`
-    )
-    .join("");
+        )
+        .join("")
+    : '<p class="hint">No sections in this layout - its shopping view is empty.</p>';
+  const addRows = ctx.addable.length
+    ? ctx.addable
+        .map(
+          (section) => `
+        <div class="store-row" data-action="layout-section-add" data-section-id="${section.id}">
+          <ha-icon icon="${esc(section.icon)}" class="row-icon"></ha-icon>
+          <span class="row-name">${esc(section.name)}</span>
+          <div class="row-actions">
+            ${iconBtn("layout-section-add", "mdi:plus", `Add ${esc(section.name)} to this layout`)}
+          </div>
+        </div>`
+        )
+        .join("")
+    : '<p class="hint">Every section is already in this layout.</p>';
   return `
     ${storeTabs("layouts")}
     <div class="layout-editor" data-layout-id="${layout.id}">
@@ -215,10 +222,15 @@ export function layoutEditor(layout, ctx) {
         </label>
         <button type="button" class="primary-btn" data-action="layout-save-name">Save</button>
       </div>
+      <div class="addrow">
+        <button type="button" class="icon-btn" data-action="layout-add-sections" aria-label="${ctx.showAdd ? "Hide the add list" : "Add sections to this layout"}" title="${ctx.showAdd ? "Hide the add list" : "Add sections"}">
+          <ha-icon icon="${ctx.showAdd ? "mdi:minus" : "mdi:plus"}"></ha-icon>
+        </button>
+        <span class="hint">Add sections</span>
+      </div>
+      ${ctx.showAdd ? `<div class="store-list">${addRows}</div>` : ""}
       <h2 class="shead"><ha-icon icon="mdi:arrow-up-down"></ha-icon><span>Section order</span></h2>
       <div class="store-list">${orderRows}</div>
-      <h2 class="shead"><ha-icon icon="mdi:eye-off-outline"></ha-icon><span>Hidden sections</span></h2>
-      <div class="store-list">${hideRows}</div>
       <button type="button" class="primary-btn done-btn" data-action="layout-done">Done</button>
     </div>
   `;

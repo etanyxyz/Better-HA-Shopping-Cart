@@ -224,6 +224,13 @@
   margin-bottom: 16px;
 }
 
+/* A text label standing in for the input (layout editor add-sections row). */
+.addrow .hint {
+  flex: 1 1 auto;
+  margin: 0;
+  text-align: left;
+}
+
 .add-input {
   flex: 1 1 auto;
   min-width: 0;

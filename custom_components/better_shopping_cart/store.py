@@ -70,7 +70,10 @@ class BetterShoppingCartStore(Crud):
             self._data = self._seed()
         else:
             self._data = stored
-            if self._migrate_default_sections():
+            if (
+                self._migrate_default_sections()
+                or self._migrate_layout_hidden_sections()
+            ):
                 await self.async_save()
 
     async def async_save(self) -> None:
@@ -146,6 +149,25 @@ class BetterShoppingCartStore(Crud):
                 changed = True
         if changed:
             _LOGGER.info("Migrated shopping cart sections to the default set")
+        return changed
+
+    def _migrate_layout_hidden_sections(self) -> bool:
+        """Clear every layout's hidden sections (NOTES: Layouts tab).
+
+        The "Hidden sections" UI is gone: removing a section from a layout is
+        the only way to keep it out of the view, so stored hidden lists would
+        be invisible leftovers with no way to restore them. Returns True when
+        the payload changed.
+        """
+        changed = False
+        for layout in self.data["layouts"]:
+            if layout.get("hidden_sections"):
+                layout["hidden_sections"] = []
+                changed = True
+        if changed:
+            _LOGGER.info(
+                "Migrated shopping cart layouts (cleared hidden sections)"
+            )
         return changed
 
     # ------------------------------------------------------------------

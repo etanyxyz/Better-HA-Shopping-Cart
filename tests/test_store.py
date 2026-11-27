@@ -206,6 +206,46 @@ async def test_load_migrates_default_sections(store, hass):
     assert [s.id for s in again.sections()] == [s.id for s in fresh.sections()]
 
 
+async def test_load_migrates_layout_hidden_sections(store, hass):
+    """The "Hidden sections" UI is gone (NOTES: Layouts tab), so stored
+    hidden lists are cleared on load: every section in a layout's order is
+    shown again. The user's explicit section_order is left untouched and
+    the result is persisted.
+    """
+    old_payload = {
+        "version": STORAGE_VERSION,
+        "sections": [
+            {"id": name.lower(), "name": name, "icon": icon, "order": order}
+            for order, (name, icon) in enumerate(DEFAULT_SECTIONS)
+        ],
+        "layouts": [
+            {
+                "id": "tesco",
+                "name": "Tesco",
+                "section_order": ["dairy", "meat", "bakery"],
+                "hidden_sections": ["meat", "bakery"],
+            }
+        ],
+        "lists": [],
+        "templates": [],
+        "category_map": {},
+        "settings": dict(DEFAULT_SETTINGS),
+    }
+    await store._store.async_save(old_payload)
+
+    fresh = BetterShoppingCartStore(hass)
+    await fresh.async_load()
+    layout = fresh.layouts()[0]
+    assert layout.hidden_sections == []
+    # the user's explicit order is kept as-is
+    assert layout.section_order == ["dairy", "meat", "bakery"]
+
+    # the migration persisted: a second load is a no-op
+    again = BetterShoppingCartStore(hass)
+    await again.async_load()
+    assert again.layouts()[0].hidden_sections == []
+
+
 # ----------------------------------------------------------------------
 # Layouts
 # ----------------------------------------------------------------------
